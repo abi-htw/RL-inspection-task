@@ -46,8 +46,9 @@ import torch
 import time
 
 
-from omniisaacgymenvs.robots.articulations.Box import Box
-from omniisaacgymenvs.robots.articulations.views.box_view import BoxView
+
+# from omniisaacgymenvs.robots.articulations.Box import Box
+# from omniisaacgymenvs.robots.articulations.views.box_view import BoxView
 
 BACKGROUND_STAGE_PATH = "/background"
 BACKGROUND_USD_PATH = "/Isaac/Environments/Simple_Room/simple_room.usd"
@@ -81,7 +82,7 @@ class ReacherTask(RLTask):
         self.arm_dof_speed_scale = self._task_cfg["env"]["dofSpeedScale"]
         self.use_relative_control = self._task_cfg["env"]["useRelativeControl"]
         #self.act_moving_average = self._task_cfg["env"]["actionsMovingAverage"]
-        self.act_moving_average = 0.1
+        self.act_moving_average = 0.01
         self.max_episode_length = self._task_cfg["env"]["episodeLength"]
         self.reset_time = self._task_cfg["env"].get("resetTime", -1.0)
         self.print_success_stat = self._task_cfg["env"]["printNumSuccesses"]
@@ -95,6 +96,12 @@ class ReacherTask(RLTask):
             print("Reset time: ", self.reset_time)
             print("New episode length: ", self.max_episode_length)
 
+
+
+        ### Variables to calculate FPS
+        self.fps_count = 0
+        self.startfpstiem = time.time()
+
         RLTask.__init__(self, name, env)
 
         self.x_unit_tensor = torch.tensor([1, 0, 0], dtype=torch.float, device=self.device).repeat((self.num_envs, 1))
@@ -106,6 +113,19 @@ class ReacherTask(RLTask):
         self.successes = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
         self.consecutive_successes = torch.zeros(1, dtype=torch.float, device=self.device)
 
+        # Tensor for accuracy
+        self.accuracy = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+
+        # Tensor for make span 
+        self.make_span_time = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+
+        # Tensor for success numbers
+        self.success_num = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+        # Tensor for rejection numbers
+        self.rejection_num = torch.zeros(self.num_envs, dtype=torch.float, device=self.device)
+
+
+
         self.av_factor = torch.tensor(self.av_factor, dtype=torch.float, device=self.device)
         self.total_successes = 0
         self.total_resets = 0
@@ -114,16 +134,17 @@ class ReacherTask(RLTask):
         ### Define vel reward ###
         self.cur_goal_pos = []
         self.vel_reward = 0
-        
+
         return
 
     def set_up_scene(self, scene: Scene) -> None:
         self._stage = get_current_stage()
         #add_reference_to_stage(assets_root_path + BACKGROUND_USD_PATH, BACKGROUND_STAGE_PATH)
-        self._assets_root_path = '/home/abi/Documents/ur_10_inst_box/Isaac/2022.1'
+        self._assets_root_path = '/inst_assets/Isaac/2022.1'
         self.get_arm()
         self.get_object()
-        self.get_box()
+        # self.get_box()
+        self.get_engine()
         self.get_goal()
 
         super().set_up_scene(scene)
@@ -131,9 +152,14 @@ class ReacherTask(RLTask):
         self._arms = self.get_arm_view(scene)
         scene.add(self._arms)
 
+        # def get_boxx(self):
+        #     boxx = Box(prim_path=self.default_zero_env_path + "/Cartpole", name="Cartpole", translation=self._cartpole_positions)
+        #     # applies articulation settings from the task configuration yaml file
+        #     self._sim_config.apply_articulation_settings("Cartpole", get_prim_at_path(cartpole.prim_path), self._sim_config.parse_actor_config("Cartpole"))
+
         # self._box = self.get_box_view(scene)
         # scene.add(self._box)
-        
+
         self._objects = RigidPrimView(
             prim_paths_expr="/World/envs/env_.*/object/object",
             name="object_view",
@@ -174,9 +200,21 @@ class ReacherTask(RLTask):
     def get_box_view(self):
         pass
 
+    @abstractmethod
+    def get_engine(self):
+        pass
+
+    @abstractmethod
+    def get_engine_view(self):
+        pass
+
 
     @abstractmethod
     def get_observations(self):
+        pass
+
+    @abstractmethod
+    def get_extras(self):
         pass
 
     @abstractmethod
@@ -202,7 +240,7 @@ class ReacherTask(RLTask):
         )
         self._sim_config.apply_articulation_settings("object", get_prim_at_path(obj.prim_path), self._sim_config.parse_actor_config("object"))
 
-    def get_goal(self):  
+    def get_goal(self):
         self.goal_displacement_tensor = torch.tensor([0.0, 0.0, 0.0], device=self.device)
         self.goal_start_translation = torch.tensor([0.0, 0.0, 0.0], device=self.device) + self.goal_displacement_tensor
         self.goal_start_orientation = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device)
@@ -228,14 +266,27 @@ class ReacherTask(RLTask):
         self.cur_targets = torch.zeros((self.num_envs, self.num_arm_dofs), dtype=torch.float, device=self.device)
         self.move_avg_env = torch.zeros((self.num_envs), dtype=torch.float, device=self.device)
         #Define priority Tensor
-        self.priority = torch.zeros((self.num_envs, 4), dtype=torch.bool, device=self.device)
+        self.priority = torch.zeros((self.num_envs, 6), dtype=torch.bool, device=self.device)
         # Set the 1st point as the priority on every reset
         self.priority[:, 0] = True
 
-        
-        
+        # Target position id
+        self.cur_goal_pos = torch.zeros(self.num_envs, device=self.device)
+
+        # Tensor for number of environment reset
+        self.all_resets = torch.zeros(self.num_envs, device=self.device)
+        self.all_prev_resets = torch.zeros(self.num_envs, device=self.device)
+
+        # Validation datset
+        self.validation = None
+        self.current_target_points= None
+
+
+
         #start time of all envs
         self.start_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
+        self.global_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
+
         dof_limits = self._dof_limits
         self.arm_dof_lower_limits, self.arm_dof_upper_limits = torch.t(dof_limits[0].to(self.device))
 
@@ -247,7 +298,7 @@ class ReacherTask(RLTask):
         self.goal_pos, self.goal_rot = self._goals.get_world_poses()
         self.goal_pos -= self._env_pos
 
-       
+
 
         # randomize all envs
         indices = torch.arange(self._num_envs, dtype=torch.int64, device=self._device)
@@ -258,16 +309,38 @@ class ReacherTask(RLTask):
         self.fall_dist = 0
         self.fall_penalty = 0
         self.velocity_reward = 0
-        self.rew_buf[:], self.reset_buf[:], self.reset_goal_buf[:], self.progress_buf[:], self.successes[:], self.consecutive_successes[:] = compute_arm_reward(
+        self.rew_buf[:], self.reset_buf[:], self.reset_goal_buf[:], self.progress_buf[:], self.successes[:], self.consecutive_successes[:], self.accuracy[:], self.all_prev_resets[:], self.success_num[:], self.rejection_num[:], self.make_span_time[:] = compute_arm_reward(
             self.rew_buf, self.reset_buf, self.reset_goal_buf, self.progress_buf, self.successes, self.consecutive_successes,
             self.max_episode_length, self.object_pos, self.object_rot, self.goal_pos, self.goal_rot,
             self.dist_reward_scale, self.rot_reward_scale, self.rot_eps, self.actions, self.action_penalty_scale,
             self.success_tolerance, self.reach_goal_bonus, self.fall_dist, self.fall_penalty,
             self.max_consecutive_successes, self.av_factor,
-            self.velocity_reward, self.cur_goal_pos, self.move_avg_env, self.time_diff, self.priority #add current velocity and goal pos
+            self.velocity_reward, self.cur_goal_pos, self.move_avg_env, self.time_diff, self.global_time, torch.tensor(time.perf_counter()), self.priority,
+             self.all_resets #add current velocity and goal pos
         )
 
+
         self.extras['consecutive_successes'] = self.consecutive_successes.mean()
+        self.extras['successes'] = self.successes
+        self.extras['accuracy'] = self.accuracy
+        self.extras['job_successes'] = self.success_num
+        self.extras['job_rejections'] = self.rejection_num
+        self.extras['waiting_time'] = self.make_span_time
+
+
+        # print(self.accuracy)
+        # print(self.consecutive_successes)
+        # print(self.successes)
+
+
+
+        # for env, success in enumerate(self.consecutive_successes):
+        #     if success.item() < 3.0 :
+        #         self.accuracy[env] = 0
+        # self.extras['accuracy'] = self.accuracy
+        # # self.extras['post_reset_success']
+        # print(self.accuracy)
+
 
         if self.print_success_stat:
             self.total_resets = self.total_resets + self.reset_buf.sum()
@@ -281,6 +354,13 @@ class ReacherTask(RLTask):
     def pre_physics_step(self, actions):
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         goal_env_ids = self.reset_goal_buf.nonzero(as_tuple=False).squeeze(-1)
+
+        ###FPS calculation###################################
+        #     velocity_reward = torch.cat((moving_pos1_reward, moving_pos2_reward))
+
+
+            ###################################################
+
 
         end_effectors_pos, end_effectors_rot = self._arms._end_effectors.get_world_poses()
         # Reverse the default rotation and rotate the displacement tensor according to the current rotation
@@ -299,23 +379,29 @@ class ReacherTask(RLTask):
         elif len(goal_env_ids) > 0:
             self.reset_target_pose(goal_env_ids)
         if len(env_ids) > 0:
-            self.start_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
+            # print(env_ids)
+            for x in env_ids:
+                self.start_time[x.item()]= time.perf_counter()
+            for x in env_ids:
+                self.global_time[x.item()]= time.perf_counter()
+                # self.success_num[x] = 0
+            # self.start_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
             self.reset_idx(env_ids)
 
         self.actions = actions.clone().to(self.device)
         # Reacher tasks don't require gripper actions, disable it.
         self.actions[:, 5] = 0.0
 
-        self.move_avg_env = torch.clamp(actions[:, 6], min=0.01, max=0.1)
-        self.move_avg_env = self.move_avg_env.unsqueeze(1) 
+        self.move_avg_env = torch.clamp(actions[:, 6], min=0.001, max=0.1)
+        self.move_avg_env = self.move_avg_env.unsqueeze(1)
         self.act_moving_average = self.move_avg_env
 
         if self.use_relative_control:
             targets = self.prev_targets[:, self.actuated_dof_indices] + self.arm_dof_speed_scale * self.dt * self.actions[:,0:6]
             self.cur_targets[:, self.actuated_dof_indices] = tensor_clamp(targets,
                 self.arm_dof_lower_limits[self.actuated_dof_indices], self.arm_dof_upper_limits[self.actuated_dof_indices])
-            
-            
+
+
 
         else:
             self.cur_targets[:, self.actuated_dof_indices] = scale(self.actions[:, 0:6],
@@ -348,10 +434,9 @@ class ReacherTask(RLTask):
         # reset goal
         indices = env_ids.to(dtype=torch.int32)
         rand_floats = torch_rand_float(-1.0, 1.0, (len(env_ids), 4), device=self.device)
-
-        new_pos, curr_pos, target_points, new_pos_2, new_priority_tensor = self.get_reset_target_new_pos(len(env_ids), self.priority, env_ids)
+        new_pos, curr_pos, target_points, new_pos_2, new_priority_tensor = self.get_reset_target_new_pos(len(env_ids), self.priority, env_ids, self.all_resets, self.all_prev_resets)
         new_rot = randomize_rotation(rand_floats[:, 0], rand_floats[:, 1], self.x_unit_tensor[env_ids], self.y_unit_tensor[env_ids])
-        self.cur_goal_pos = torch.zeros(len(self.goal_pos),dtype=torch.long, device=self.device)
+        #self.cur_goal_pos = torch.zeros(len(self.goal_pos), device=self.device)
         self.goal_pos[env_ids] = new_pos
         self.goal_rot[env_ids] = new_rot
 
@@ -362,11 +447,12 @@ class ReacherTask(RLTask):
         for reset_env_id_tensor in env_ids:
             reset_env_id_ints = reset_env_id_tensor.item()
             self.start_time[reset_env_id_ints] = torch.tensor([time.perf_counter()], device=self.device)
-            
+
         # Assign the points to a variable
         self.target_ponts = target_points
+        # self.cur_goal_pos[env_ids] = curr_pos
         self.cur_goal_pos[env_ids] = curr_pos
-        
+
 
         goal_pos, goal_rot = self.goal_pos.clone(), self.goal_rot.clone()
         goal_pos[env_ids] = self.goal_pos[env_ids] + self._env_pos[env_ids] # add world env pos
@@ -380,7 +466,7 @@ class ReacherTask(RLTask):
         rand_floats = torch_rand_float(-1.0, 1.0, (len(env_ids), self.num_arm_dofs * 2 + 5), device=self.device)
 
         self.reset_target_pose(env_ids)
-        
+
         # reset arm
         delta_max = self.arm_dof_upper_limits - self.arm_dof_default_pos
         delta_min = self.arm_dof_lower_limits - self.arm_dof_default_pos
@@ -405,10 +491,15 @@ class ReacherTask(RLTask):
         self._arms.set_joint_positions(dof_pos[env_ids], indices)
         self._arms.set_joint_velocities(dof_vel[env_ids], indices)
 
+
+
+        # self.global_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
+
+
         self.progress_buf[env_ids] = 0
         self.reset_buf[env_ids] = 0
         self.successes[env_ids] = 0
-        print("Reset done!!°!!!")
+        #print("Reset done!!°!!!")
 
 #####################################################################
 ###=========================jit functions=========================###
@@ -418,6 +509,16 @@ class ReacherTask(RLTask):
 def randomize_rotation(rand0, rand1, x_unit_tensor, y_unit_tensor):
     return quat_mul(quat_from_angle_axis(rand0 * np.pi, x_unit_tensor), quat_from_angle_axis(rand1 * np.pi, y_unit_tensor))
 
+@torch.jit.script
+def polynomial(x):
+    # return 20 * x**3 + 50 * x**2 + 2 * x + 1
+    return -0.5 * x**2 - 3 * x -10
+
+    
+@torch.jit.script
+def apply_function_to_tensor(tensor):
+    result = [polynomial(x) for x in tensor]
+    return [float(-1*i.item()) for i in result]
 
 @torch.jit.script
 def compute_arm_reward(
@@ -427,7 +528,8 @@ def compute_arm_reward(
     actions, action_penalty_scale: float,
     success_tolerance: float, reach_goal_bonus: float, fall_dist: float,
     fall_penalty: float, max_consecutive_successes: int, av_factor: float,
-    velocity_reward: float, cur_goal_pos, mov_avg_env, diff_time, priority_tensor
+    velocity_reward: float, cur_goal_pos, mov_avg_env, diff_time, global_time, current_time,  priority_tensor,
+    all_resets
 ):
 
     goal_dist = torch.norm(object_pos - target_pos, p=2, dim=-1)
@@ -441,83 +543,122 @@ def compute_arm_reward(
 
     action_penalty = torch.sum(actions ** 2, dim=-1)
 
-    #### Velocty Reward ######
-    high_speed = torch.full_like(mov_avg_env,0.03, device= "cuda")
-    low_speed = torch.full_like(mov_avg_env, 0.07, device= "cuda")
-    velocity_reward = torch.empty(512, device= "cuda")
-    choice1 = torch.full_like(cur_goal_pos,1, device= "cuda")
-    choice2 = torch.full_like(cur_goal_pos,2, device= "cuda")
+    ############### Velocty Reward ################################
+    # high_speed = torch.full_like(mov_avg_env,0.03, device= "cuda:0")
+    # low_speed = torch.full_like(mov_avg_env, 0.07, device= "cuda:0")
+    # velocity_reward = torch.empty(512, device= "cuda:0")
+    # choice1 = torch.full_like(cur_goal_pos,1, device= "cuda:0")
+    # choice2 = torch.full_like(cur_goal_pos,2, device= "cuda:0")
 
 
-    ch =  torch.eq(cur_goal_pos, choice1)
-    first_indices = ch == 1
-    second_indices = ch == 0
+    # ch =  torch.eq(cur_goal_pos, choice1)
+    # first_indices = ch == 1
+    # second_indices = ch == 0
 
-    indices_1 = first_indices.nonzero()
-    indices_1_reshaped = indices_1.squeeze(1)
-    indices_2 = second_indices.nonzero()
-    indices_2_reshaped = indices_2.squeeze(1)
+    # indices_1 = first_indices.nonzero()
+    # indices_1_reshaped = indices_1.squeeze(1)
+    # indices_2 = second_indices.nonzero()
+    # indices_2_reshaped = indices_2.squeeze(1)
 
-    high_s = torch.where(torch.gt(mov_avg_env,high_speed), 0.5, -0.5)
-    low_s = torch.where(torch.gt(mov_avg_env,low_speed), -0.5, 0.5)
-    high_s_reshaped = high_s.squeeze((1))
-    low_s_reshaped = low_s.squeeze((1))
+    # high_s = torch.where(torch.gt(mov_avg_env,high_speed), 0.5, -0.5)
+    # low_s = torch.where(torch.gt(mov_avg_env,low_speed), -0.5, 0.5)
+    # high_s_reshaped = high_s.squeeze((1))
+    # low_s_reshaped = low_s.squeeze((1))
 
- 
 
-    # first_indices = first_indices.reshape()
-    moving_pos1_reward = torch.gather(high_s_reshaped, -1, indices_1_reshaped)
-    moving_pos2_reward = torch.gather(low_s_reshaped, -1, indices_2_reshaped)
 
-    #vel_rew =  torch.where(torch.gt(mov_avg_env,low_speed), -2.5, 0.5)
+    # # first_indices = first_indices.reshape()
+    # moving_pos1_reward = torch.gather(high_s_reshaped, -1, indices_1_reshaped)
+    # moving_pos2_reward = torch.gather(low_s_reshaped, -1, indices_2_reshaped)
+
+    # #vel_rew =  torch.where(torch.gt(mov_avg_env,low_speed), -2.5, 0.5)
     #vel_rew = vel_rew.squeeze(1)
-    velocity_reward = torch.cat((moving_pos1_reward, moving_pos2_reward))
- 
+    # velocity_reward = torch.cat((moving_pos1_reward, moving_pos2_reward))
+
     #print(tot_vel_rew.shape)
     # for x in first_indices:
         # idx = (torch.gt(high_speed, mov_avg_env) == x).nonzero().flatten()
     # new_val = high_s_reshaped[torch.arange(high_s_reshaped), first_indices]
     # print(new_val)
 
-    # Time Reward
-
-    time_reward = torch.zeros_like(dist_rew)
-
-    for  num, env_time  in enumerate(torch.cat((priority_tensor, diff_time), dim=1)):
-        for envt in env_time[0:-1]:
-           
-            if  env_time[-1].item() < 5 and env_time[-1].item() > 1:
-                time_reward[num] = 0.5
-            else:
-                time_reward[num] = -1.0
+    vel_reward = torch.where(((goal_dist < float(0.1)) & (mov_avg_env.squeeze(1) < float(0.008))), 10.0, -0.1)
+    # print(mov_avg_env.squeeze(1))
     
+
+    ##################Time Reward####################################
+
+    # time_reward = torch.zeros_like(dist_rew)
+
+    # for  num, env_time  in enumerate(torch.cat((priority_tensor, diff_time), dim=1)):
+    #     for envt in env_time[0:-1]:
+
+    #         if  env_time[-1].item() < 7 and env_time[-1].item() > 0:
+    #             time_reward[num] = 0.5
+    #         else:
+    #             time_reward[num] = -1.0
+
     # print(diff_time, bool(torch.abs(goal_dist) <= success_tolerance), time_reward)
-    #print(goal_dist.shape, diff_time.squeeze(1).shape)
+    # print(goal_dist.shape, diff_time.squeeze(1).shape)
+
+    diff_time_sq = diff_time.squeeze(1)
+
+    time_reward = torch.where((diff_time_sq <= float(7.0)) & (diff_time_sq > float(0.0)), 0.5, 0.1)
+    # print(dist_rew.shape, time_reward.shape)
 
 
-    # Reward for reaching the goal position 
+    # Reward for reaching the goal position
 
+    ##############Goal Reward #################################
     gol_rew = torch.zeros_like(goal_dist)
 
-    for num, env in enumerate(goal_dist):
-        if env < 0.1:
-            gol_rew[num] = 1
-        elif env < 0.05:
-            gol_rew[num] = 3
-        else:
-            gol_rew[num] = -1
+    # for num, env in enumerate(goal_dist):
+    #     if env < 0.1:
+    #         gol_rew[num] = 1
+    #     elif env < 0.05:
+    #         gol_rew[num] = 3
+    #     else:
+    #         gol_rew[num] = -1
 
-    print(gol_rew)
-
-
-    goal_reward = torch.where(torch.abs(goal_dist) <= success_tolerance, 1, -1)
-
+    # For jit script based polynomial reward
+    
+    # goal_reward = torch.tensor(apply_function_to_tensor(goal_dist))
 
 
+    # For simple condition based reward 
 
+
+    goal_reward = torch.where(torch.abs(goal_dist) <= success_tolerance, 1/goal_dist , 0)
+    goal_reward = torch.where(torch.abs(goal_dist) > float(0.1), 0, goal_reward)
+
+
+    # print(goal_reward)
+
+#################################################################
+
+    ############### Accuracy calculation########################
+
+    accuracy = torch.zeros_like(gol_rew)
+
+    # for num,dist in enumerate(torch.abs(goal_dist)):
+    #     if dist <= 1.0 and dist >= -1.0:
+    #         accuracy[num] = (1-torch.abs(goal_dist[num])/1.0)*100
+    #     else:
+    #         accuracy[num] = 0
+
+    accuracy = torch.where((torch.abs(goal_dist) >= float(-1.0)) & (torch.abs(goal_dist) <= float(1.0)), ((1-torch.abs(goal_dist)/1.0)*100), torch.abs(goal_dist)*0)
+
+
+    ###############################################################
+
+    # waiting time
+    # print(f"current{cur_goal_pos}")
+
+    # calculate success rate and total overhead
 
     # Total reward is: position distance + orientation alignment + action regularization + success bonus + fall penalty
-    reward =  time_reward + gol_rew + dist_rew + action_penalty * action_penalty_scale    
+    reward =   vel_reward + dist_rew + gol_rew +  action_penalty * action_penalty_scale
+
+
 
     # print(f"Time reward: {time_reward}") #, goal dist:  {goal_dist}")
 
@@ -525,22 +666,72 @@ def compute_arm_reward(
     goal_resets = torch.where((torch.abs(diff_time.squeeze(1)) > 7.0) & (torch.abs(goal_dist) <= success_tolerance), torch.ones_like(reset_goal_buf), reset_goal_buf)
     successes = successes + goal_resets
 
+    # additional success rate
+
+    #additional_success = torch.zeros_like(reward)
+    # print(additional_success.shape)
+
+    # success_num_tensor = torch.zeros_like(gol_rew)
+
+    # success_num_tensor = torch.zeros_like(gol_rew)
+    # rejection_num_tensor = torch.zeros_like(gol_rew)
+
+
+    task_success = torch.where((successes >= 6) & ((current_time - global_time.squeeze(1)) < 70), 1,0)
+    # for num,env in enumerate(success_num_tensor):
+    #     success_num_tensor[num]+=task_success[num]
+
+    make_span = torch.where((successes >= 6) & ((current_time - global_time.squeeze(1)) < 60), 1,0)
+
+    wait_time = current_time - global_time.squeeze(1)
+
+    wait_time = wait_time.to(torch.float32)
+
+    # for num,x in enumerate(wait_time):
+    #     wait_time[num] = float(x)
+
+    make_span_time = torch.where((make_span == 0), (wait_time - 60), wait_time*0)
+    
+    # print(len(make_span_time))
+
+    rejected = torch.where((successes < 6) | ((current_time - global_time.squeeze(1)) > 70), 1,0)
+ 
+    # for num,env in enumerate(rejection_num_tensor):
+    #     rejection_num_tensor[num]+=rejected[num]
+    # print(rejection_num_tensor,(current_time - global_time.squeeze(1)))
+
+    # print(rejected)
+
 
     # Success bonus: orientation is within `success_tolerance` of goal orientation
     # for num, env_diff in enumerate(diff_time):
-    #     if env_diff.item() < 5 and env_diff.item() > 1:  
+    #     if env_diff.item() < 5 and env_diff.item() > 1:
     reward = torch.where(goal_resets == 1, reward + reach_goal_bonus, reward)
 
     resets = reset_buf
     if max_consecutive_successes > 0:
         # Reset progress buffer on goal envs if max_consecutive_successes > 0
-        progress_buf = torch.where(torch.abs(rot_dist) <= success_tolerance, torch.zeros_like(progress_buf), progress_buf)
+        # progress_buf = torch.where(torch.abs(rot_dist) <= success_tolerance, torch.zeros_like(progress_buf), progress_buf)
+        #progress_buf = torch.where(torch.abs(goal_dist) <= success_tolerance, torch.zeros_like(progress_buf), progress_buf)
         resets = torch.where(successes >= max_consecutive_successes, torch.ones_like(resets), resets)
     resets = torch.where(progress_buf >= max_episode_length, torch.ones_like(resets), resets)
+    # print(progress_buf)
+
+    all_prev_resets = all_resets.clone()
+    all_resets+=resets
+
+
+    # # reset rejection tensor
+    # for num, env in enumerate(resets):
+    #     if env.item():
+    #         success_num_tensor[num] = 0
+
+
 
     num_resets = torch.sum(resets)
     finished_cons_successes = torch.sum(successes * resets.float())
 
     cons_successes = torch.where(num_resets > 0, av_factor*finished_cons_successes/num_resets + (1.0 - av_factor)*consecutive_successes, consecutive_successes)
 
-    return reward, resets, goal_resets, progress_buf, successes, cons_successes
+
+    return reward, resets, goal_resets, progress_buf, successes, cons_successes, accuracy, all_prev_resets, task_success, rejected, make_span_time

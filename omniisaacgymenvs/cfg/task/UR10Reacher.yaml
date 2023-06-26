@@ -7,7 +7,7 @@ physics_engine: ${..physics_engine}
 env:
   numEnvs: ${resolve_default:512,${...num_envs}}
   envSpacing: 3
-  episodeLength: 600
+  episodeLength: 3500 #600
 
   clipObservations: 5.0
   clipActions: 1.0
@@ -36,16 +36,19 @@ env:
   rotRewardScale: 1.0
   rotEps: 0.1
   actionPenaltyScale: -0.0002
-  reachGoalBonus: 250
+  # reachGoalBonus: 250
+  reachGoalBonus: 1000
+
   velObsScale: 0.2
 
   observationType: "full" # can only be "full"
   successTolerance: 0.05
   printNumSuccesses: False
-  maxConsecutiveSuccesses: 0
+  maxConsecutiveSuccesses: 6
 
 sim:
-  dt: 0.0083 # 1/120 s
+  dt: .0083 # 1/120 s
+  gravity: [0.0, 0.0, -9.81]
   add_ground_plane: True
   add_distant_light: True
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
@@ -89,7 +92,7 @@ sim:
     enable_self_collisions: False
   box:
     # -1 to use default values
-    override_usd_defaults: False
+    override_usd_defaults: True
     fixed_base: False
     enable_self_collisions: False
   object:
@@ -127,6 +130,4 @@ sim2real:
   fail_quietely: False
   verbose: False
 safety: # Reduce joint limits during both training & testing
-  enabled: False
-verbose:
   enabled: False

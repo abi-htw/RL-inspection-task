@@ -12,14 +12,15 @@ import torch
 import carb
 
 
-class Box(Robot):
+class Engine(Robot):
     def __init__(
         self,
         prim_path: str,
-        name: Optional[str] = "Box",
+        name: Optional[str] = "Engine",
         usd_path: Optional[str] = None,
         translation: Optional[torch.tensor] = None,
         orientation: Optional[torch.tensor] = None,
+        scale: Optional[torch.tensor] = None,
     ) -> None:
         """[summary]
         """
@@ -30,14 +31,16 @@ class Box(Robot):
             assets_root_path = get_assets_root_path()
             if assets_root_path is None:
                 carb.log_error("Could not find Isaac Sim assets folder")
-            self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Props/Box/box_instantiable.usd"
+            self._usd_path = "/inst_assets/engine_small.usd"
             # self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Props/Box/small_KLT.usd"
 
 
 
         self._position = torch.tensor([1.1, 0.8, 0.1]) if translation is None else translation
         self._orientation = torch.tensor([0.1, 0.0, 0.0, 0.0]) if orientation is None else orientation
-
+        self._orientation = torch.tensor([0.1, 0.0, 0.0, 0.0]) if orientation is None else orientation
+        
+    
         add_reference_to_stage(self._usd_path, prim_path)
 
         super().__init__(

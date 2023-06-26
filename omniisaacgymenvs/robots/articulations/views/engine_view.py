@@ -7,11 +7,11 @@ from omni.isaac.core.articulations import ArticulationView
 from omni.isaac.core.prims import RigidPrimView
 
 
-class BoxView(RigidPrimView):
+class EngineView(RigidPrimView):
     def __init__(
         self,
         prim_paths_expr: str,
-        name: Optional[str] = "BoxView",
+        name: Optional[str] = "EngineView",
     ) -> None:
 
         super().__init__(

@@ -7,7 +7,8 @@ physics_engine: ${..physics_engine}
 env:
   numEnvs: ${resolve_default:512,${...num_envs}}
   envSpacing: 3
-  episodeLength: 3500 #600
+  # episodeLength: 3100 #600
+  episodeLength: 1000
 
   clipObservations: 5.0
   clipActions: 1.0
@@ -33,11 +34,13 @@ env:
 
   # reward -> dictionary
   distRewardScale: -2.0
+  # distRewardScale: -2.0
+  # rotRewardScale: 1.0
   rotRewardScale: 1.0
   rotEps: 0.1
   actionPenaltyScale: -0.0002
   # reachGoalBonus: 250
-  reachGoalBonus: 1000
+  reachGoalBonus: 500
 
   velObsScale: 0.2
 
@@ -48,7 +51,7 @@ env:
 
 sim:
   dt: .0083 # 1/120 s
-  gravity: [0.0, 0.0, -9.81]
+  gravity: [0.0, 0.0, -9.8]
   add_ground_plane: True
   add_distant_light: True
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}
@@ -95,12 +98,17 @@ sim:
     override_usd_defaults: True
     fixed_base: False
     enable_self_collisions: False
+  Engine:
+    # -1 to use default values
+    override_usd_defaults: True
+    fixed_base: True
+    enable_self_collisions: False
   object:
     # -1 to use default values
     override_usd_defaults: False
     fixed_base: True
     enable_self_collisions: False
-    enable_gyroscopic_forces: True
+    enable_gyroscopic_forces: False
     # also in stage params
     # per-actor
     solver_position_iteration_count: 8

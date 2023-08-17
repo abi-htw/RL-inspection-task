@@ -5,7 +5,7 @@ import torch.nn as nn
 # Import the skrl components to build the RL system
 from skrl.models.torch import Model, GaussianMixin, DeterministicMixin
 from skrl.memories.torch import RandomMemory
-from skrl.agents.torch.ppo import PPO, PPO_DEFAULT_CONFIG
+from skrl.agents.torch.ppo import PPO as  PPO, PPO_DEFAULT_CONFIG
 from skrl.resources.schedulers.torch import KLAdaptiveRL
 from skrl.resources.preprocessors.torch import RunningStandardScaler
 from skrl.trainers.torch import SequentialTrainer
@@ -33,17 +33,17 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
 
         self.net = nn.Sequential(nn.Linear(self.num_observations, 512),
                                  nn.ELU(),
+                                 nn.Linear(512, 512),
+                                 nn.ELU(),
                                  nn.Linear(512, 256),
                                  nn.ELU(),
                                  nn.Linear(256, 128),
-                                 nn.ELU(),
-                                 nn.Linear(128, 64),
                                  nn.ELU())
 
-        self.mean_layer = nn.Linear(64, self.num_actions)
+        self.mean_layer = nn.Linear(128, self.num_actions)
         self.log_std_parameter = nn.Parameter(torch.zeros(self.num_actions))
 
-        self.value_layer = nn.Linear(64, 1)
+        self.value_layer = nn.Linear(128, 1)
 
     def act(self, inputs, role):
         if role == "policy":
@@ -83,16 +83,21 @@ models_ppo["value"] = models_ppo["policy"]  # same instance: shared model
 # Only modify some of the default configuration, visit its documentation to see all the options
 # https://skrl.readthedocs.io/en/latest/modules/skrl.agents.ppo.html#configuration-and-hyperparameters
 cfg_ppo = PPO_DEFAULT_CONFIG.copy()
-cfg_ppo["rollouts"] = 16  # memory_size
+# cfg_ppo["rollouts"] = 16  # memory_size
+cfg_ppo["rollouts"] = 64  # memory_size
+# cfg_ppo["learning_epochs"] = 6
 cfg_ppo["learning_epochs"] = 8
-cfg_ppo["mini_batches"] = 1  # 16 * 512 / 8192
-cfg_ppo["discount_factor"] = 0.99
+# cfg_ppo["mini_batches"] = 2  # 16 * 512 / 8192
+cfg_ppo["mini_batches"] = 1  # 64 * 512 / 32768
+cfg_ppo["discount_factor"] = 0.995
 cfg_ppo["lambda"] = 0.95
-cfg_ppo["learning_rate"] = 5e-3
+# cfg_ppo["learning_rate"] = 5e-4
+cfg_ppo["learning_rate"] = 5e-5
 cfg_ppo["learning_rate_scheduler"] = KLAdaptiveRL
+# cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.014}
 cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.008}
 cfg_ppo["random_timesteps"] = 0
-cfg_ppo["learning_starts"] = 100
+cfg_ppo["learning_starts"] = 0
 cfg_ppo["grad_norm_clip"] = 1.0
 cfg_ppo["ratio_clip"] = 0.2
 cfg_ppo["value_clip"] = 0.2
@@ -100,16 +105,16 @@ cfg_ppo["clip_predicted_values"] = True
 cfg_ppo["entropy_loss_scale"] = 0.0
 cfg_ppo["value_loss_scale"] = 2.0
 cfg_ppo["kl_threshold"] = 0
-# cfg_ppo["rewards_shaper"] = lambda rewards, timestep, timesteps: rewards * 0.01
+cfg_ppo["rewards_shaper"] = lambda rewards, timestep ,  timesteps: rewards * 0.01
 cfg_ppo["state_preprocessor"] = RunningStandardScaler
 cfg_ppo["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 cfg_ppo["value_preprocessor"] = RunningStandardScaler
 cfg_ppo["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints each 16 and 80 timesteps respectively
-# cfg_ppo["experiment"]["write_interval"] = 16
-# cfg_ppo["experiment"]["checkpoint_interval"] = 4000
-# cfg_ppo["experiment"]["wandb"] = True
-# cfg_ppo["experiment"]["store_separately"] = True 
+cfg_ppo["experiment"]["write_interval"] = 600
+cfg_ppo["experiment"]["checkpoint_interval"] = 13000
+cfg_ppo["experiment"]["wandb"] = True
+
 
 
 agent = PPO(models=models_ppo,
@@ -121,12 +126,14 @@ agent = PPO(models=models_ppo,
 
 
 # Configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 160000, "headless": True}
+cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # trainer = ParallelTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
-# agent.load("//RLrepo/OmniIsaacGymEnvs-UR10Reacher/omniisaacgymenvs/runs/23-05-17_18-41-07-620425_PPO :-train (-0.7,0.7), success, rejection/checkpoints/best_agent.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_01-34-00-735561_PPO/checkpoints/agent_988000.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-14_17-39-55-045947_PPO/checkpoints/agent_988000.pt")
+
 
 # start training
 trainer.train()

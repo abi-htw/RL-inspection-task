@@ -123,9 +123,9 @@ cfg_td3["learning_starts"] = 0
 cfg_td3["state_preprocessor"] = RunningStandardScaler
 cfg_td3["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 # logging to TensorBoard and write checkpoints each 25 and 1000 timesteps respectively
-cfg_td3["experiment"]["write_interval"] = 25
-cfg_td3["experiment"]["checkpoint_interval"] = 4000
-cfg_td3["experiment"]["wandb"] = False
+# cfg_td3["experiment"]["write_interval"] = 25
+# cfg_td3["experiment"]["checkpoint_interval"] = 13000
+# cfg_td3["experiment"]["wandb"] = True
 
 
 
@@ -139,12 +139,12 @@ agent = TD3(models=models_td3,
 
 
 # Configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 160000, "headless": True}
+cfg_trainer = {"timesteps": 900000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 #trainer = ParallelTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
-agent.load("/RLrepo/OmniIsaacGymEnvs-UR10Reacher/omniisaacgymenvs/runs/23-05-19_13-05-38-770949_TD3/checkpoints/best_agent.pt")
+agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-07-28_18-07-59-896584_TD3/checkpoints/agent_897000.pt")
 
 # start training
 # trainer.train()

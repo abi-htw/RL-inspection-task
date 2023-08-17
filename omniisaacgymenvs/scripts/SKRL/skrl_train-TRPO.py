@@ -13,10 +13,13 @@ from skrl.envs.torch import wrap_env
 from skrl.envs.torch import load_omniverse_isaacgym_env
 from skrl.utils import set_seed
 import psutil
+import threading
 
 
 # set the seed for reproducibility
 set_seed(42)
+# set_seed()
+
 
 
 # Define the models (stochastic and deterministic models) for the agent using mixins.
@@ -28,7 +31,11 @@ class Policy(GaussianMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         GaussianMixin.__init__(self, clip_actions, clip_log_std, min_log_std, max_log_std)
 
-        self.net = nn.Sequential(nn.Linear(self.num_observations, 256),
+        self.net = nn.Sequential(nn.Linear(self.num_observations, 512),
+                                 nn.ELU(),
+                                 nn.Linear(512, 512),
+                                 nn.ELU(),
+                                 nn.Linear(512, 256),
                                  nn.ELU(),
                                  nn.Linear(256, 128),
                                  nn.ELU(),
@@ -46,7 +53,11 @@ class Value(DeterministicMixin, Model):
         Model.__init__(self, observation_space, action_space, device)
         DeterministicMixin.__init__(self, clip_actions)
 
-        self.net = nn.Sequential(nn.Linear(self.num_observations, 256),
+        self.net = nn.Sequential(nn.Linear(self.num_observations, 512),
+                                 nn.ELU(),
+                                 nn.Linear(512, 512),
+                                 nn.ELU(),
+                                 nn.Linear(512, 256),
                                  nn.ELU(),
                                  nn.Linear(256, 128),
                                  nn.ELU(),
@@ -60,6 +71,8 @@ class Value(DeterministicMixin, Model):
 
 # Load and wrap the Isaac Gym environment
 env = load_omniverse_isaacgym_env(task_name="UR10Reacher")
+# env = load_omniverse_isaacgym_env(task_name="UR10Reacher",multi_threaded= True, timeout=30)
+
 env = wrap_env(env)
 
 device = env.device
@@ -83,20 +96,21 @@ models_trpo["value"] = Value(env.observation_space, env.action_space, device)
 cfg_trpo = TRPO_DEFAULT_CONFIG.copy()
 cfg_trpo["rollouts"] = 16  # memory_size
 cfg_trpo["learning_epochs"] = 8
-cfg_trpo["mini_batches"] = 1
+cfg_trpo["mini_batches"] = 2
 cfg_trpo["discount_factor"] = 0.99
 cfg_trpo["lambda"] = 0.95
-cfg_trpo["learning_rate"] = 3e-4
+cfg_trpo["learning_rate"] = 4e-4
 cfg_trpo["grad_norm_clip"] = 1.0
 cfg_trpo["value_loss_scale"] = 2.0
 cfg_trpo["state_preprocessor"] = RunningStandardScaler
 cfg_trpo["state_preprocessor_kwargs"] = {"size": env.observation_space, "device": device}
 cfg_trpo["value_preprocessor"] = RunningStandardScaler
 cfg_trpo["value_preprocessor_kwargs"] = {"size": 1, "device": device}
+cfg_trpo["conjugate_gradient_steps"]= 20
 # logging to TensorBoard and write checkpoints each 16 and 80 timesteps respectively
-# cfg_trpo["experiment"]["write_interval"] = 16
-# cfg_trpo["experiment"]["checkpoint_interval"] = 8000
-cfg_trpo["experiment"]["wandb"] = False
+cfg_trpo["experiment"]["write_interval"] = 16
+cfg_trpo["experiment"]["checkpoint_interval"] = 13000
+cfg_trpo["experiment"]["wandb"] = True
 
 
 agent = TRPO(models=models_trpo,
@@ -112,11 +126,18 @@ agent.track_data("Resource / CPU usage", psutil.cpu_percent())
 # agent.track_data("accuracy", env.extras)
 
 # Configure and instantiate the RL trainer
-cfg_trainer = {"timesteps": 160000, "headless": True}
+cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
-# agent.load("/RLrepo/OmniIsaacGymEnvs-UR10Reacher/omniisaacgymenvs/runs/23-05-12_18-53-49-280488_TRPO - train/checkpoints/best_agent.pt")
-agent.load("/RLrepo/OmniIsaacGymEnvs-UR10Reacher/omniisaacgymenvs/runs/23-05-17_18-45-04-933068_TRPO:-train (-0.7,0.7), success, rejection/checkpoints/best_agent.pt")
+agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-14_11-12-45-946128_TRPO/checkpoints/agent_988000.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_16-58-10-525562_TRPO/checkpoints/best_agent.pt")
 
 # start training
-# trainer.train()
-trainer.eval()
+trainer.train()
+# trainer.eval()
+
+# threading.Thread(target=trainer.eval).start()
+# threading.Thread(target=trainer.train).start()
+
+
+# env.run()
+

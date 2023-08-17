@@ -67,7 +67,7 @@ class UR10ReacherTask(ReacherTask):
                 "Unknown type of observations!\nobservationType should be one of: [full]")
         print("Obs type:", self.obs_type)
         self.num_obs_dict = {
-            "full": 29,
+            "full": 32,
             # 6: UR10 joints position (action space)
             # 6: UR10 joints velocity
             # 3: goal position
@@ -77,6 +77,7 @@ class UR10ReacherTask(ReacherTask):
             # 7: previous goal position
             # 8: priority tensor
             # 9: Time difference tensor
+            # 10: tolerance_timer
         }
 
         self.object_scale = torch.tensor([1.0] * 3)
@@ -179,13 +180,14 @@ class UR10ReacherTask(ReacherTask):
             self._sim_config.parse_actor_config("Engine"),
         )
 
-    def get_engnie_view(self, scene):
-        engine_view1 = EngineView(prim_paths_expr="/World/envs/.*/Engine", name="engine_view")
-        #scene.add(box_view1)
+    def get_engine_view(self, scene):
+        engine_view1 = EngineView(prim_paths_expr="/World/envs/.*/Engine", name="engine_view", track_contact_forces=True, prepare_contact_sensors=True)
+        scene.add(engine_view1._startor)
         return engine_view1
 
     def get_object_displacement_tensor(self):
-        return torch.tensor([0.0, 0.05, 0.0], device=self.device).repeat((self.num_envs, 1))
+        return torch.tensor([0.0, 0.003, 0.0], device=self.device).repeat((self.num_envs, 1)) # Change from 0.05 to 0.003 for Picam instaead of the cube
+
 
     def get_observations(self):
         self.arm_dof_pos = self._arms.get_joint_positions()
@@ -225,7 +227,7 @@ class UR10ReacherTask(ReacherTask):
         new_pos = torch_rand_float(-1, 1, (n_reset_envs, 3), device=self.device)
 
         def newpos():
-            return torch_rand_float(-0.7, 0.7 , (1, 3), device=self.device)
+            return torch_rand_float(-0.6, 0.6 , (1, 3), device=self.device)
 
 
         target_poses = [[0.143423, -0.13423, 0.343423],[0.943423, -0.13423, 0.343423], [0.943423, -0.93423, 0.343423],[0.143423, -0.93423, 0.343423]] #,[-0.143423, -0.13423, 0.343423], [-0.443423, -0.13423, 0.343423]
@@ -243,6 +245,16 @@ class UR10ReacherTask(ReacherTask):
         self.fourth_target = torch.tensor([0.143423, -0.93423, 0.343423], device=self.device)
         self.fifth_target = torch.tensor([-0.43423, -0.93423, 0.343423], device=self.device)
         self.sixth_target = torch.tensor([-0.943423, -0.93423, 0.343423], device=self.device)
+        self.seventh_target = torch.tensor([0.543423, 0.43423, 0.343423], device=self.device)
+        self.eighth_target = torch.tensor([0.543423, 0.73423, 0.343423], device=self.device)
+        self.nineth_target = torch.tensor([0.743423, 0.73423, 0.343423], device=self.device)
+        self.tenth_target = torch.tensor([0.943423, 0.73423, 0.343423], device=self.device)
+        self.eleventh_target = torch.tensor([0.743423, 0.73423, 0.443423], device=self.device)
+        self.twelth_target = torch.tensor([0.743423, 0.23423, 0.443423], device=self.device)
+        
+
+
+
 
 
 
@@ -287,7 +299,8 @@ class UR10ReacherTask(ReacherTask):
 
         new_pos_2 = torch.zeros((n_reset_envs, 3), device=self.device)
 
-        target_points = [ self.fifth_target, self.sixth_target ,self.first_target, self.second_target, self.third_target, self.fourth_target]
+        # target_points = [ self.fifth_target, self.sixth_target ,self.first_target, self.second_target, self.third_target, self.fourth_target]
+        target_points = [ self.seventh_target, self.eighth_target, self.nineth_target, self.tenth_target, self.eleventh_target, self.twelth_target]
         priority_list = []
         target_env_pts = []
 
@@ -412,6 +425,9 @@ class UR10ReacherTask(ReacherTask):
             self.obs_buf[:, base+3:base+7] = self.goal_rot
             self.obs_buf[:, base+7:base+11] = quat_mul(self.object_rot, quat_conjugate(self.goal_rot))
             self.obs_buf[:, base+11:base+18] = self.actions
+            self.obs_buf[:, base+18:base+19] = self.tolerance_timer_1.unsqueeze(1)
+            self.obs_buf[:, base+19:base+20] = self.act_moving_average 
+            self.obs_buf[:, base+20:base+21] = self.accuracy.unsqueeze(1) 
             # self.obs_buf[:, base+18:base+19] = self.cur_goal_pos.unsqueeze(1)
             # self.obs_buf[:, base+19:base+25] = self.priority
             #self.obs_buf[:, base+18:base+19] = self.time_diff

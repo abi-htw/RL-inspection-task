@@ -221,10 +221,18 @@ class UR10ReacherTask(ReacherTask):
 
     #     return {"extras": self.extras}
 
+    def get_rand_eng_layer_pos(self, pos):
+        x = random.uniform(pos[0]-0.2, pos[0]+0.2)
+        y = random.uniform(pos[1]- 0.2, pos[1] + 0.2)
+        z = random.choice([pos[2]- 0.15, pos[2]+ 0.2])
+        return torch.tensor([x,y,z], device= self.device)
+
 
     def get_reset_target_new_pos(self, n_reset_envs, priority_tensor, reset_envs, all_resets, all_prev_resets):
         # Randomly generate goal positions, although the resulting goal may still not be reachable.
         new_pos = torch_rand_float(-1, 1, (n_reset_envs, 3), device=self.device)
+        new_pos_engine = self.get_rand_eng_layer_pos([0.6,0.8, 0.5])
+        # print(new_pos_engine)
 
         def newpos():
             return torch_rand_float(-0.6, 0.6 , (1, 3), device=self.device)
@@ -410,7 +418,7 @@ class UR10ReacherTask(ReacherTask):
             new_pos_2[:, 1] = torch.abs(new_pos_2[:, 1]) / 1.25
         # print(new_pos_2)
         # new_pos_2 : with priorities on defenite points, new_pos : random points
-        return new_pos,  current_pos, target_points, new_pos_2 , new_priority_tensor
+        return new_pos_engine,  current_pos, target_points, new_pos_2 , new_priority_tensor
 
     def compute_full_observations(self, no_vel=False):
         if no_vel:

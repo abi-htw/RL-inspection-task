@@ -108,9 +108,9 @@ cfg_trpo["value_preprocessor"] = RunningStandardScaler
 cfg_trpo["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 cfg_trpo["conjugate_gradient_steps"]= 20
 # logging to TensorBoard and write checkpoints each 16 and 80 timesteps respectively
-cfg_trpo["experiment"]["write_interval"] = 16
-cfg_trpo["experiment"]["checkpoint_interval"] = 13000
-cfg_trpo["experiment"]["wandb"] = True
+# cfg_trpo["experiment"]["write_interval"] = 16
+# cfg_trpo["experiment"]["checkpoint_interval"] = 13000
+# cfg_trpo["experiment"]["wandb"] = True
 
 
 agent = TRPO(models=models_trpo,
@@ -128,12 +128,12 @@ agent.track_data("Resource / CPU usage", psutil.cpu_percent())
 # Configure and instantiate the RL trainer
 cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
-agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-14_11-12-45-946128_TRPO/checkpoints/agent_988000.pt")
+agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-23_16-54-06-036335_TRPO/checkpoints/best_agent.pt")
 # agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_16-58-10-525562_TRPO/checkpoints/best_agent.pt")
 
 # start training
-trainer.train()
-# trainer.eval()
+# trainer.train()
+trainer.eval()
 
 # threading.Thread(target=trainer.eval).start()
 # threading.Thread(target=trainer.train).start()

@@ -181,7 +181,7 @@ class ReacherTask(RLTask):
             visualize=True,                        # Whether to visualize the sensor
         )
 
-        self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
+        # self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)
 
@@ -373,6 +373,7 @@ class ReacherTask(RLTask):
         self.extras['job_rejections'] = self.rejection_num
         self.extras['waiting_time'] = self.make_span_time
         self.extras['stability'] = self.stability
+        self.extras['tolerance_timer']= self.tolerance_timer_1
 
         # Start tolerance timers
         self.time_diff_n= self.time_diff.squeeze(1)
@@ -417,8 +418,8 @@ class ReacherTask(RLTask):
 
 
 ##############TEst-contact sensors ##############################
-        readings = self._sensor.get_sensor_sim_reading("/World/envs/.*/Engine/bmw_engine/stator_instant_Scaled" +"/sensor")
-        print("Contact sensor: ", readings.inContact, readings.time, readings.value)
+        # readings = self._sensor.get_sensor_sim_reading("/World/envs/.*/Engine/bmw_engine/stator_instant_Scaled" +"/sensor")
+        # print("Contact sensor: ", readings.inContact, readings.time, readings.value)
         # engine_contact = torch.norm(self._engine._startor.get_net_contact_forces(clone=False).view(self._num_envs, 4, 3), dim=-1) > 1.
 
 ################################################################################

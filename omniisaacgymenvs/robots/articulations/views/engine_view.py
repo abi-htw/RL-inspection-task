@@ -23,7 +23,7 @@ class EngineView(ArticulationView):
         )
 
         # self._col = RigidPrimView(prim_paths_expr="/World/envs/.*/box", name="boxx_view", reset_xform_properties=False)
-        self._startor = RigidPrimView(prim_paths_expr="/World/envs/.*/Engine/stator_instant_Scaled", name="startor_view", reset_xform_properties=False)
+        #self._startor = RigidPrimView(prim_paths_expr="/World/envs/.*/Engine/stator_instant_Scaled", name="startor_view", reset_xform_properties=False)
 
     # def initialize(self, physics_sim_view):
     #     super().initialize(physics_sim_view)

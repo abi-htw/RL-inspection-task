@@ -168,3 +168,76 @@ if __name__ == '__main__':
     create_box_mesh(box_usd, ur10_box_usd_path)
     create_box_instanceable(ur10_box_usd_path, box_instanceable_usd_path)
     print("Done!")
+
+
+    ########################################## Engine instaceable ###############################
+
+import omni.usd
+import omni.client
+
+from pxr import UsdGeom, Sdf, UsdPhysics, UsdShade
+
+
+# Note: this script should be executed in Isaac Sim `Script Editor` window
+
+def create_engine(asset_dir_usd_path, ur10_dir_usd_path):
+    # Duplicate UR10 folder
+    omni.client.copy(asset_dir_usd_path, ur10_dir_usd_path)
+
+def create_engine_mesh(asset_usd_path, ur10_mesh_usd_path):
+    # Create ur10_mesh.usd file
+    omni.client.copy(asset_usd_path, ur10_mesh_usd_path)
+    omni.usd.get_context().open_stage(ur10_mesh_usd_path)
+    stage = omni.usd.get_context().get_stage()
+    edits = Sdf.BatchNamespaceEdit()
+    # Create parent Xforms
+    reparent_tasks = [
+        # base_link
+        ['/_8/', 'geoms_xform'],
+    ] # [prim_path, parent_xform_name]
+    for task in reparent_tasks:
+        prim_path, parent_xform_name = task
+        old_parent_path = '/'.join(prim_path.split('/')[:-1])
+        new_parent_path = f'{old_parent_path}/{parent_xform_name}'
+        UsdGeom.Xform.Define(stage, new_parent_path)
+        edits.Add(Sdf.NamespaceEdit.Reparent(prim_path, new_parent_path, -1))
+    stage.GetRootLayer().Apply(edits)
+    # Save to file
+    omni.usd.get_context().save_stage()
+
+def create_engine_instanceable(ur10_mesh_usd_path, ur10_instanceable_usd_path):
+    omni.client.copy(ur10_mesh_usd_path, ur10_instanceable_usd_path)
+    omni.usd.get_context().open_stage(ur10_instanceable_usd_path)
+    stage = omni.usd.get_context().get_stage()
+    # Set up references and instanceables
+    for prim in stage.Traverse():
+        if prim.GetTypeName() != 'Xform':
+            continue
+        # Add reference to visuals_xform, collisions_xform, geoms_xform, and make them instanceable
+        path = str(prim.GetPath())
+        if path.endswith('visuals_xform') or path.endswith('collisions_xform') or path.endswith('geoms_xform'):
+            ref = prim.GetReferences()
+            ref.ClearReferences()
+            ref.AddReference('./engine_mesh.usd', path)
+            prim.SetInstanceable(True)
+    # Save to file
+    omni.usd.get_context().save_stage()
+
+
+
+
+
+if __name__ == '__main__':
+    asset_dir_usd_path = '/inst_assets/bmw_engine/Startor_Version_3/'
+    ur10_dir_usd_path = '/inst_assets/bmw_engine/Startor_Version_3/'
+    ur10_usd_path = '/inst_assets/bmw_engine/Startor_Version_3/28.usd'
+    ur10_mesh_usd_path = '/inst_assets/bmw_engine/Startor_Version_3/engine_mesh.usd'
+    ur10_instanceable_usd_path = '/inst_assets/bmw_engine/Startor_Version_3/engine_instanceable.usd'
+    
+    
+    create_engine(asset_dir_usd_path, ur10_dir_usd_path)
+    create_engine_mesh(ur10_usd_path, ur10_mesh_usd_path)
+    create_engine_instanceable(ur10_mesh_usd_path, ur10_instanceable_usd_path)
+
+
+    print("Done!")

@@ -32,7 +32,7 @@ class Engine(Robot):
             if assets_root_path is None:
                 carb.log_error("Could not find Isaac Sim assets folder")
             # self._usd_path = "/inst_assets/bmw_engine.usd"
-            self._usd_path = "/inst_assets/bmw_engine/Startor Version 3/28.usd"
+            self._usd_path = "/inst_assets/bmw_engine/Startor_Version_3/28.usd"
 
             # self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Props/Box/small_KLT.usd"
 

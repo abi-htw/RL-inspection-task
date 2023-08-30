@@ -80,8 +80,8 @@ class UR10ReacherTask(ReacherTask):
             # 10: tolerance_timer
         }
 
-        self.object_scale = torch.tensor([1.0] * 3)
-        self.goal_scale = torch.tensor([2.0] * 3)
+        self.object_scale = torch.tensor([0.01] * 3)
+        self.goal_scale = torch.tensor([0.5] * 3)
 
         self._num_observations = self.num_obs_dict[self.obs_type]
         self._num_actions = 7
@@ -171,7 +171,7 @@ class UR10ReacherTask(ReacherTask):
         box_view1 = BoxView(prim_paths_expr="/World/envs/.*/Box", name="box_view")
         #scene.add(box_view1)
         return box_view1
-    
+
     def get_engine(self):
         box = Engine(prim_path=self.default_zero_env_path + "/Engine", name="ENGINE")
         self._sim_config.apply_articulation_settings(
@@ -221,17 +221,23 @@ class UR10ReacherTask(ReacherTask):
 
     #     return {"extras": self.extras}
 
-    def get_rand_eng_layer_pos(self, pos):
-        x = random.uniform(pos[0]-0.2, pos[0]+0.2)
-        y = random.uniform(pos[1]- 0.2, pos[1] + 0.2)
-        z = random.choice([pos[2]- 0.15, pos[2]+ 0.2])
-        return torch.tensor([x,y,z], device= self.device)
+    def get_rand_eng_layer_pos(self, pos, n_reset_envs):
+        while True:
+            x = random.uniform(pos[0]-0.2, pos[0]+0.2)
+            y = random.uniform(pos[1]- 0.2, pos[1] + 0.2)
+            z = random.choice([pos[2], pos[2]+ 0.2])
+            if x in (pos[0]-0.08, pos[0] +0.08) and y in (pos[1]-0.08, pos[1] +0.08) and z in (pos[2]-0.08, pos[2] +0.08):
+                pass
+            else: 
+                False
+            relative_pos = torch.tensor([x,y,z], device= self.device)
+            return torch.stack([relative_pos]* n_reset_envs)
 
 
     def get_reset_target_new_pos(self, n_reset_envs, priority_tensor, reset_envs, all_resets, all_prev_resets):
         # Randomly generate goal positions, although the resulting goal may still not be reachable.
         new_pos = torch_rand_float(-1, 1, (n_reset_envs, 3), device=self.device)
-        new_pos_engine = self.get_rand_eng_layer_pos([0.6,0.8, 0.5])
+        new_pos_engine = self.get_rand_eng_layer_pos([0.4, 0.0, 0.75], n_reset_envs)
         # print(new_pos_engine)
 
         def newpos():
@@ -259,7 +265,7 @@ class UR10ReacherTask(ReacherTask):
         self.tenth_target = torch.tensor([0.943423, 0.73423, 0.343423], device=self.device)
         self.eleventh_target = torch.tensor([0.743423, 0.73423, 0.443423], device=self.device)
         self.twelth_target = torch.tensor([0.743423, 0.23423, 0.443423], device=self.device)
-        
+
 
 
 
@@ -271,7 +277,7 @@ class UR10ReacherTask(ReacherTask):
 
         six_points = [self.fifth_target, self.sixth_target ,self.first_target, self.second_target, self.third_target, self.fourth_target]
         temp = [newpos() for _ in range(6)]
-        
+
 
         if self.test:
             if not self.validation:
@@ -297,7 +303,7 @@ class UR10ReacherTask(ReacherTask):
                     elif num == 99:
                         print("Last validation point reached and exiting")
                         self.current_target_points = None
-                
+
             # print(f"-----------{self.current_target_points}")
             # for num,items in enumerate(zip(all_resets, all_prev_resets)):
             #     if items[0].item() != items[1].item():
@@ -417,6 +423,20 @@ class UR10ReacherTask(ReacherTask):
             new_pos_2[:, 0] = torch.abs(new_pos_2[:, 0]) / 1.25
             new_pos_2[:, 1] = torch.abs(new_pos_2[:, 1]) / 1.25
         # print(new_pos_2)
+
+        # if self._task_cfg['sim2real']['enabled'] and self.test and self.num_envs == 1:
+        #     # Depends on your real robot setup
+        #     new_pos_engine[:, 0] = torch.abs(new_pos_engine[:, 0] * 0.1) + 0.35
+        #     new_pos_engine[:, 1] = torch.abs(new_pos_engine[:, 1] * 0.1) + 0.35
+        #     new_pos_engine[:, 2] = torch.abs(new_pos_engine[:, 2] * 0.5) + 0.3
+        # else:
+        #     new_pos_engine[:, 0] = new_pos_engine[:, 0] * 0.4 + 0.5 * torch.sign(new_pos_engine[:, 0])
+        #     new_pos_engine[:, 1] = new_pos_engine[:, 1] * 0.4 + 0.5 * torch.sign(new_pos_engine[:, 1])
+        #     new_pos_engine[:, 2] = torch.abs(new_pos_engine[:, 2] * 0.8) + 0.1
+        # if self._task_cfg['safety']['enabled']:
+        #     new_pos_engine[:, 0] = torch.abs(new_pos_engine[:, 0]) / 1.25
+        #     new_pos_engine[:, 1] = torch.abs(new_pos_engine[:, 1]) / 1.25
+        print(f"pew pos {new_pos_engine}")
         # new_pos_2 : with priorities on defenite points, new_pos : random points
         return new_pos_engine,  current_pos, target_points, new_pos_2 , new_priority_tensor
 
@@ -434,8 +454,8 @@ class UR10ReacherTask(ReacherTask):
             self.obs_buf[:, base+7:base+11] = quat_mul(self.object_rot, quat_conjugate(self.goal_rot))
             self.obs_buf[:, base+11:base+18] = self.actions
             self.obs_buf[:, base+18:base+19] = self.tolerance_timer_1.unsqueeze(1)
-            self.obs_buf[:, base+19:base+20] = self.act_moving_average 
-            self.obs_buf[:, base+20:base+21] = self.accuracy.unsqueeze(1) 
+            self.obs_buf[:, base+19:base+20] = self.act_moving_average
+            self.obs_buf[:, base+20:base+21] = self.accuracy.unsqueeze(1)
             # self.obs_buf[:, base+18:base+19] = self.cur_goal_pos.unsqueeze(1)
             # self.obs_buf[:, base+19:base+25] = self.priority
             #self.obs_buf[:, base+18:base+19] = self.time_diff

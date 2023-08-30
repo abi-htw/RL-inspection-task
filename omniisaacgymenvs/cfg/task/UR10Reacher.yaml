@@ -51,7 +51,7 @@ env:
 
 sim:
   dt: .0083 # 1/120 s
-  gravity: [0.0, 0.0, 0.0]
+  gravity: [0.0, 0.0, -9.8]
   add_ground_plane: True
   add_distant_light: True
   use_gpu_pipeline: ${eq:${...pipeline},"gpu"}

@@ -55,7 +55,7 @@ class UR10(Robot):
             self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Robots/UR10/ur10_instanceable.usd"
 
         # Depends on your real robot setup
-        self._position = torch.tensor([0.0, 0.0, 0.0]) if translation is None else translation
+        self._position = torch.tensor([-0.4, -0.0, 0.67]) if translation is None else translation
         self._orientation = torch.tensor([1.0, 0.0, 0.0, 0.0]) if orientation is None else orientation
 
         add_reference_to_stage(self._usd_path, prim_path)

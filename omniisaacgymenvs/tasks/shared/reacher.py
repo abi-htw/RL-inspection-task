@@ -158,7 +158,7 @@ class ReacherTask(RLTask):
         self._assets_root_path = '/inst_assets/Isaac/2022.1'
         self.get_arm()
         self.get_object()
-        # self.get_box()
+        self.get_box()
         self.get_engine()
         self.get_goal()
 
@@ -171,7 +171,7 @@ class ReacherTask(RLTask):
         result, sensor = kit.commands.execute(
             "IsaacSensorCreateContactSensor",
             path="/sensor",         # Choose the desired path for the sensor
-            parent="/World/envs/.*/Engine/bmw_engine/stator_instant_Scaled",                # Parent path is the rigid body's path
+            parent="/World/envs/env_0/object/picam_hq",                # Parent path is the rigid body's path
             min_threshold=0.1,                     # Minimum contact force threshold
             max_threshold=10.0,                    # Maximum contact force threshold
             color=Gf.Vec4f(1, 0, 0, 1),            # Color of the visualization
@@ -181,7 +181,7 @@ class ReacherTask(RLTask):
             visualize=True,                        # Whether to visualize the sensor
         )
 
-        # self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
+        self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)
 
@@ -197,9 +197,9 @@ class ReacherTask(RLTask):
         # scene.add(self._engine)
 
         self._objects = RigidPrimView(
-            prim_paths_expr="/World/envs/env_.*/object/camera_inst/picam_hq",
+            prim_paths_expr="/World/envs/env_.*/object/picam_hq",
             name="object_view",
-            reset_xform_properties=False,
+            reset_xform_properties=False, #track_contact_forces=True, prepare_contact_sensors=True,
         )
         scene.add(self._objects)
         self._goals = RigidPrimView(
@@ -267,16 +267,16 @@ class ReacherTask(RLTask):
         self.object_start_orientation = torch.tensor([1, 0.0, 0.0,  0.0], device=self.device)
         # self.object_usd_path = f"{self._assets_root_path}/Isaac/Props/Blocks/block_instanceable.usd"
         # add_reference_to_stage(self.object_usd_path, self.default_zero_env_path + "/object")
-        self.object_usd_path = "/inst_assets/Picam/camera_inst_scaled.usd"
+        self.object_usd_path = "/inst_assets/Picam/picam_rigid1.usd"
         add_reference_to_stage(self.object_usd_path, self.default_zero_env_path + "/object")
         obj = XFormPrim(
-            prim_path=self.default_zero_env_path + "/object/camera_inst/picam_hq",
-            name="object",
+            prim_path=self.default_zero_env_path + "/object/picam_hq",
+            name="picam_hq",
             translation=self.object_start_translation,
             orientation=self.object_start_orientation,
-            scale=torch.tensor([0.02], device=self.device)
+            scale=self.object_scale#scale=torch.tensor([0.002,0.02,0.02], device=self.device)
         )
-        self._sim_config.apply_articulation_settings("object", get_prim_at_path(obj.prim_path), self._sim_config.parse_actor_config("object"))
+        self._sim_config.apply_articulation_settings("picam_hq", get_prim_at_path(obj.prim_path), self._sim_config.parse_actor_config("object"))
 
     def get_goal(self):
         self.goal_displacement_tensor = torch.tensor([0.0, 0.0, 0.0], device=self.device)
@@ -573,6 +573,7 @@ def compute_arm_reward(
 ):
 
     goal_dist = torch.norm(object_pos - target_pos, p=2, dim=-1)
+    # print(f"target pos {target_pos}")
     # Orientation alignment for the cube in hand and goal cube
     quat_diff = quat_mul(object_rot, quat_conjugate(target_rot))
     rot_dist = 2.0 * torch.asin(torch.clamp(torch.norm(quat_diff[:, 1:4], p=2, dim=-1), max=1.0)) # changed quat convention
@@ -585,7 +586,7 @@ def compute_arm_reward(
     ############### Velocty Reward ################################
 
 
-    vel_reward = torch.where(((goal_dist < float(0.04)) & (mov_avg_env.squeeze(1) < float(0.008))), 8.0, 0.0)
+    vel_reward = torch.where(((goal_dist < float(0.05)) & (mov_avg_env.squeeze(1) < float(0.008))), 8.0, 0.0)
 
 
 
@@ -671,7 +672,7 @@ def compute_arm_reward(
     # Goal resets after every 10 seconds
     goal_resets = torch.where((torch.abs(diff_time.squeeze(1)) > 10.0) | (torch.abs(tolerance_timer_1) == 3.0), torch.ones_like(reset_goal_buf), reset_goal_buf)
     # Negative reward for not succeeding local goal
-    reward = torch.where((torch.abs(diff_time.squeeze(1)) > 10.0), reward - 200, reward)
+    reward = torch.where((torch.abs(diff_time.squeeze(1)) > 10.0), reward - 20, reward)
 
     # Find out which envs hit the goal and update successes count
     # goal_resets_suc = torch.where((torch.abs(diff_time.squeeze(1)) > 7.0) & (torch.abs(goal_dist) <= success_tolerance), torch.ones_like(reset_goal_buf), reset_goal_buf)

@@ -111,9 +111,9 @@ cfg_ppo["state_preprocessor_kwargs"] = {"size": env.observation_space, "device":
 cfg_ppo["value_preprocessor"] = RunningStandardScaler
 cfg_ppo["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints each 16 and 80 timesteps respectively
-cfg_ppo["experiment"]["write_interval"] = 600
-cfg_ppo["experiment"]["checkpoint_interval"] = 13000
-cfg_ppo["experiment"]["wandb"] = True
+# cfg_ppo["experiment"]["write_interval"] = 600
+# cfg_ppo["experiment"]["checkpoint_interval"] = 13000
+# cfg_ppo["experiment"]["wandb"] = True
 
 
 
@@ -132,7 +132,7 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
 # agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_01-34-00-735561_PPO/checkpoints/agent_988000.pt")
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-14_17-39-55-045947_PPO/checkpoints/agent_988000.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-29_12-10-56-730992_PPO/checkpoints/best_agent.pt")
 
 
 # start training

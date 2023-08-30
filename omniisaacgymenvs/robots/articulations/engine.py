@@ -32,14 +32,14 @@ class Engine(Robot):
             if assets_root_path is None:
                 carb.log_error("Could not find Isaac Sim assets folder")
             # self._usd_path = "/inst_assets/bmw_engine.usd"
-            self._usd_path = "/inst_assets/bmw_engine/Startor_Version_3/28.usd"
+            self._usd_path = "/inst_assets/bmw_engine/Startor_Version_3/Engine_inst/engine_3.usd"
 
             # self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Props/Box/small_KLT.usd"
 
 
 
         # self._position = torch.tensor([1.1, 0.8, 0.5]) if translation is None else translation
-        self._position = torch.tensor([0.6, 0.8, 0.5]) if translation is None else translation
+        self._position = torch.tensor([0.4, 0.0, 0.75]) if translation is None else translation
         self._orientation = torch.tensor([0.707, -0.707, 0.0, 0.0]) if orientation is None else orientation
         self._scale = torch.tensor([0.001, 0.001, 0.001]) if scale is None else scale  # Default scale is [1, 1, 1]
         # self._scale = torch.tensor([0.01]) if scale is None else scale

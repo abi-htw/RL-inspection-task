@@ -223,21 +223,23 @@ class UR10ReacherTask(ReacherTask):
 
     def get_rand_eng_layer_pos(self, pos, n_reset_envs):
         while True:
-            x = random.uniform(pos[0]-0.2, pos[0]+0.2)
-            y = random.uniform(pos[1]- 0.2, pos[1] + 0.2)
-            z = random.choice([pos[2], pos[2]+ 0.2])
-            if x in (pos[0]-0.08, pos[0] +0.08) and y in (pos[1]-0.08, pos[1] +0.08) and z in (pos[2]-0.08, pos[2] +0.08):
+            x = random.uniform(pos[0]-0.3, pos[0]+0.3)
+            y = random.uniform(pos[1]- 0.3, pos[1] + 0.3)
+            z = random.uniform(pos[2] + 0.1, pos[2]+ 0.2)
+            if pos[0]-0.18 < x < pos[0] +0.18 and pos[1]-0.18< y < pos[1] +0.18:
+                print('in')
                 pass
             else: 
-                False
-            relative_pos = torch.tensor([x,y,z], device= self.device)
-            return torch.stack([relative_pos]* n_reset_envs)
+                print("out")
+                break
+        relative_pos = torch.tensor([x,y,z], device= self.device)
+        return torch.stack([relative_pos]* n_reset_envs)
 
 
     def get_reset_target_new_pos(self, n_reset_envs, priority_tensor, reset_envs, all_resets, all_prev_resets):
         # Randomly generate goal positions, although the resulting goal may still not be reachable.
         new_pos = torch_rand_float(-1, 1, (n_reset_envs, 3), device=self.device)
-        new_pos_engine = self.get_rand_eng_layer_pos([0.4, 0.0, 0.75], n_reset_envs)
+        new_pos_engine = self.get_rand_eng_layer_pos([0.4, 0.0, 0.67], n_reset_envs)
         # print(new_pos_engine)
 
         def newpos():

@@ -92,7 +92,7 @@ sim:
     # -1 to use default values
     override_usd_defaults: False
     fixed_base: False
-    enable_self_collisions: False
+    enable_self_collisions: True
   box:
     # -1 to use default values
     override_usd_defaults: True

@@ -227,10 +227,8 @@ class UR10ReacherTask(ReacherTask):
             y = random.uniform(pos[1]- 0.3, pos[1] + 0.3)
             z = random.uniform(pos[2] + 0.1, pos[2]+ 0.2)
             if pos[0]-0.18 < x < pos[0] +0.18 and pos[1]-0.18< y < pos[1] +0.18:
-                print('in')
                 pass
             else: 
-                print("out")
                 break
         relative_pos = torch.tensor([x,y,z], device= self.device)
         return torch.stack([relative_pos]* n_reset_envs)

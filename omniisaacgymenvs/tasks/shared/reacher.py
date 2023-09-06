@@ -198,6 +198,7 @@ class ReacherTask(RLTask):
 
         self._objects = RigidPrimView(
             prim_paths_expr="/World/envs/env_.*/object/picam_hq",
+            # prim_paths_expr="/World/envs/env_.*/object/object",
             name="object_view",
             reset_xform_properties=False, #track_contact_forces=True, prepare_contact_sensors=True,
         )
@@ -271,6 +272,7 @@ class ReacherTask(RLTask):
         add_reference_to_stage(self.object_usd_path, self.default_zero_env_path + "/object")
         obj = XFormPrim(
             prim_path=self.default_zero_env_path + "/object/picam_hq",
+            # prim_path=self.default_zero_env_path + "/object/object",
             name="picam_hq",
             translation=self.object_start_translation,
             orientation=self.object_start_orientation,

@@ -128,11 +128,11 @@ agent.track_data("Resource / CPU usage", psutil.cpu_percent())
 # Configure and instantiate the RL trainer
 cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
-agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-15_15-10-25-438897_TRPO/checkpoints/best_agent.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-09-06_12-11-26-842907_TRPO/checkpoints/best_agent.pt")
 
 # start training
-# trainer.train()
-trainer.eval()
+trainer.train()
+# trainer.eval()
 
 # threading.Thread(target=trainer.eval).start()
 # threading.Thread(target=trainer.train).start()

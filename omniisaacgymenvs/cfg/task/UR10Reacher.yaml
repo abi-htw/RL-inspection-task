@@ -33,7 +33,7 @@ env:
   forceDecayInterval: 0.08
 
   # reward -> dictionary
-  distRewardScale: -6.0
+  distRewardScale: -8.0
   # distRewardScale: -2.0
   # rotRewardScale: 1.0
   rotRewardScale: 1.0

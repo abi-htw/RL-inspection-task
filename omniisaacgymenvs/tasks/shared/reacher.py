@@ -43,7 +43,7 @@ from omni.isaac.core.utils.viewports import set_camera_view
 
 #contact import
 import omni.kit as kit
-from omni.isaac.isaac_sensor import _isaac_sensor
+# from omni.isaac.isaac_sensor import _isaac_sensor
 
 
 
@@ -168,20 +168,20 @@ class ReacherTask(RLTask):
         scene.add(self._arms)
 
         ##Add contact sensor
-        result, sensor = kit.commands.execute(
-            "IsaacSensorCreateContactSensor",
-            path="/sensor",         # Choose the desired path for the sensor
-            parent="/World/envs/env_0/object/picam_hq",                # Parent path is the rigid body's path
-            min_threshold=0.1,                     # Minimum contact force threshold
-            max_threshold=10.0,                    # Maximum contact force threshold
-            color=Gf.Vec4f(1, 0, 0, 1),            # Color of the visualization
-            radius=0.1,                            # Radius of the contact sensor
-            sensor_period=0.1,                     # Update frequency of the sensor
-            translation=Gf.Vec3d(0, 0, 0),              # Offset from the rigid body's origin
-            visualize=True,                        # Whether to visualize the sensor
-        )
+        # result, sensor = kit.commands.execute(
+        #     "IsaacSensorCreateContactSensor",
+        #     path="/sensor",         # Choose the desired path for the sensor
+        #     parent="/World/envs/env_0/object/picam_hq",                # Parent path is the rigid body's path
+        #     min_threshold=0.1,                     # Minimum contact force threshold
+        #     max_threshold=10.0,                    # Maximum contact force threshold
+        #     color=Gf.Vec4f(1, 0, 0, 1),            # Color of the visualization
+        #     radius=0.1,                            # Radius of the contact sensor
+        #     sensor_period=0.1,                     # Update frequency of the sensor
+        #     translation=Gf.Vec3d(0, 0, 0),              # Offset from the rigid body's origin
+        #     visualize=True,                        # Whether to visualize the sensor
+        # )
 
-        self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
+        #self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)
 

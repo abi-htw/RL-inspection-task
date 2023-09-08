@@ -97,9 +97,9 @@ cfg_trpo = TRPO_DEFAULT_CONFIG.copy()
 cfg_trpo["rollouts"] = 16  # memory_size
 cfg_trpo["learning_epochs"] = 8
 cfg_trpo["mini_batches"] = 2
-cfg_trpo["discount_factor"] = 0.99
+cfg_trpo["discount_factor"] = 0.994
 cfg_trpo["lambda"] = 0.95
-cfg_trpo["learning_rate"] = 4e-4
+cfg_trpo["learning_rate"] = 5e-4
 cfg_trpo["grad_norm_clip"] = 1.0
 cfg_trpo["value_loss_scale"] = 2.0
 cfg_trpo["state_preprocessor"] = RunningStandardScaler
@@ -128,11 +128,11 @@ agent.track_data("Resource / CPU usage", psutil.cpu_percent())
 # Configure and instantiate the RL trainer
 cfg_trainer = {"timesteps": 1000000, "headless": True}
 trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-09-06_12-11-26-842907_TRPO/checkpoints/best_agent.pt")
+agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-09-08_07-06-02-108725_TRPO/checkpoints/best_agent.pt")
 
 # start training
-trainer.train()
-# trainer.eval()
+# trainer.train()
+trainer.eval()
 
 # threading.Thread(target=trainer.eval).start()
 # threading.Thread(target=trainer.train).start()

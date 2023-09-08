@@ -436,7 +436,7 @@ class UR10ReacherTask(ReacherTask):
         # if self._task_cfg['safety']['enabled']:
         #     new_pos_engine[:, 0] = torch.abs(new_pos_engine[:, 0]) / 1.25
         #     new_pos_engine[:, 1] = torch.abs(new_pos_engine[:, 1]) / 1.25
-        print(f"pew pos {new_pos_engine}")
+        # print(f"pew pos {new_pos_engine}")
         # new_pos_2 : with priorities on defenite points, new_pos : random points
         return new_pos_engine,  current_pos, target_points, new_pos_2 , new_priority_tensor
 

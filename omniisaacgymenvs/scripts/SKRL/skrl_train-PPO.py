@@ -37,6 +37,8 @@ class Shared(GaussianMixin, DeterministicMixin, Model):
                                  nn.ELU(),
                                  nn.Linear(512, 256),
                                  nn.ELU(),
+                                 nn.Linear(256, 256),
+                                 nn.ELU(),
                                  nn.Linear(256, 128),
                                  nn.ELU())
 
@@ -84,15 +86,15 @@ models_ppo["value"] = models_ppo["policy"]  # same instance: shared model
 # https://skrl.readthedocs.io/en/latest/modules/skrl.agents.ppo.html#configuration-and-hyperparameters
 cfg_ppo = PPO_DEFAULT_CONFIG.copy()
 # cfg_ppo["rollouts"] = 16  # memory_size
-cfg_ppo["rollouts"] = 64  # memory_size
+cfg_ppo["rollouts"] = 16  # memory_size
 # cfg_ppo["learning_epochs"] = 6
-cfg_ppo["learning_epochs"] = 8
+cfg_ppo["learning_epochs"] = 6
 # cfg_ppo["mini_batches"] = 2  # 16 * 512 / 8192
-cfg_ppo["mini_batches"] = 1  # 64 * 512 / 32768
-cfg_ppo["discount_factor"] = 0.995
-cfg_ppo["lambda"] = 0.95
+cfg_ppo["mini_batches"] = 4  # 64 * 512 / 32768
+cfg_ppo["discount_factor"] = 0.993
+cfg_ppo["lambda"] = 0.93
 # cfg_ppo["learning_rate"] = 5e-4
-cfg_ppo["learning_rate"] = 5e-5
+cfg_ppo["learning_rate"] = 5e-4
 cfg_ppo["learning_rate_scheduler"] = KLAdaptiveRL
 # cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.014}
 cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.008}
@@ -132,7 +134,7 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
 # agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_01-34-00-735561_PPO/checkpoints/agent_988000.pt")
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-29_12-10-56-730992_PPO/checkpoints/best_agent.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-09-08_12-36-11-046049_PPO/checkpoints/best_agent.pt")
 
 
 # start training

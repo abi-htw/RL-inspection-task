@@ -40,6 +40,7 @@ from omni.isaac.core.utils.torch import scale, unscale
 from omni.isaac.gym.vec_env import VecEnvBase
 from omni.isaac.core.utils import nucleus
 from omni.isaac.core.utils.viewports import set_camera_view
+from omni.isaac.core.objects import VisualCuboid
 
 #contact import
 import omni.kit as kit
@@ -161,27 +162,13 @@ class ReacherTask(RLTask):
         self.get_box()
         self.get_engine()
         self.get_goal()
+        # self.get_cube()
 
         super().set_up_scene(scene)
 
         self._arms = self.get_arm_view(scene)
         scene.add(self._arms)
 
-        ##Add contact sensor
-        # result, sensor = kit.commands.execute(
-        #     "IsaacSensorCreateContactSensor",
-        #     path="/sensor",         # Choose the desired path for the sensor
-        #     parent="/World/envs/env_0/object/picam_hq",                # Parent path is the rigid body's path
-        #     min_threshold=0.1,                     # Minimum contact force threshold
-        #     max_threshold=10.0,                    # Maximum contact force threshold
-        #     color=Gf.Vec4f(1, 0, 0, 1),            # Color of the visualization
-        #     radius=0.1,                            # Radius of the contact sensor
-        #     sensor_period=0.1,                     # Update frequency of the sensor
-        #     translation=Gf.Vec3d(0, 0, 0),              # Offset from the rigid body's origin
-        #     visualize=True,                        # Whether to visualize the sensor
-        # )
-
-        #self._sensor = _isaac_sensor.acquire_contact_sensor_interface()  
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)
 
@@ -195,6 +182,14 @@ class ReacherTask(RLTask):
 
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)
+
+        # self._cube = RigidPrimView(
+        #     prim_paths_expr="/World/envs/env_.*/cube/object",
+        #     # prim_paths_expr="/World/envs/env_.*/object/object",
+        #     name="cube_view",
+        #     reset_xform_properties=False, #track_contact_forces=True, prepare_contact_sensors=True,
+        # )
+        # scene.add(self._cube)
 
         self._objects = RigidPrimView(
             prim_paths_expr="/World/envs/env_.*/object/picam_hq",
@@ -261,6 +256,23 @@ class ReacherTask(RLTask):
     @abstractmethod
     def send_joint_pos(self, joint_pos):
         pass
+
+    def get_cube(self):
+        self.cube_displacement_tensor = torch.tensor([0.0, 0.0, 0.0], device=self.device)
+        self.cube_start_translation = torch.tensor([0.4, 0.0, 0.67], device=self.device) + self.cube_displacement_tensor
+        self.cube_start_orientation = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device)
+
+        self.cube_usd_path = f"{self._assets_root_path}/Isaac/Props/Blocks/block_instanceable.usd"
+        add_reference_to_stage(self.cube_usd_path, self.default_zero_env_path + "/cube")
+        cube = XFormPrim(
+            prim_path=self.default_zero_env_path + "/cube/object",
+            name="cube",
+            translation=self.cube_start_translation,
+            orientation=self.cube_start_orientation,
+            scale=torch.tensor([5.0, 5.0, 5.0], device=self.device)
+       
+        )
+        self._sim_config.apply_articulation_settings("cube", get_prim_at_path(cube.prim_path), self._sim_config.parse_actor_config("cube"))
 
 
     def get_object(self):
@@ -364,7 +376,7 @@ class ReacherTask(RLTask):
             self.max_consecutive_successes, self.av_factor,
             self.velocity_reward, self.cur_goal_pos, self.move_avg_env, self.time_diff, self.global_time, torch.tensor(time.perf_counter()), self.priority,
             self.all_resets, #add current velocity and goal pos
-            self.tolerance_timer_1,
+            self.tolerance_timer_1, #self.obj_pos_check(self.object_pos, self.num_envs),
         )
 
 
@@ -478,6 +490,17 @@ class ReacherTask(RLTask):
             else:
                 self.send_joint_pos(joint_pos)
 
+    ####### Funtion for checking if the end effector position is inside the defined area ##############
+    def obj_pos_check(self, obj_pos, num_envs):
+        """Pass in the object pos and checks if it is within the engine viscinity
+           input: object_pos
+           output: bool """
+        engine_pos = [0.4, 0.0, 0.67]
+       # if obj_pos[0] in range(engine_pos[0]-0.2, engine_pos[0]+0.2) and obj_pos[0] in range(engine_pos[1]-0.2, engine_pos[1]+0.2) and obj_pos[0] in range(engine_pos[2]-0.2, engine_pos[2]+0.2):
+        # in_eng_vis = torch.where(((engine_pos[0]-0.18 < obj_pos[0] < engine_pos[0] +0.18) & (engine_pos[1]-0.18< obj_pos[1] < engine_pos[1] +0.18) & (engine_pos[2]-0.18< obj_pos[2] < engine_pos[2] +0.09)), True, False)
+        in_eng_vis = torch.where(((engine_pos[0]-1.98 < obj_pos[:,0]) & (obj_pos[:,0] < engine_pos[0] +1.98) & (engine_pos[1]-1.98 < obj_pos[:,1]) & (obj_pos[:,0] < engine_pos[1] +1.98) & (engine_pos[2]-0.18 < obj_pos[:,2]) & (obj_pos[:,2] < engine_pos[2] +0.09)), True, False)
+        # print(in_eng_vis)
+        return in_eng_vis            
 
     def is_done(self):
         pass
@@ -571,11 +594,14 @@ def compute_arm_reward(
     fall_penalty: float, max_consecutive_successes: int, av_factor: float,
     velocity_reward: float, cur_goal_pos, mov_avg_env, diff_time, global_time, current_time,  priority_tensor,
     all_resets,
-    tolerance_timer_1
+    tolerance_timer_1,
+    #obj_in_pos,
+
 ):
 
     goal_dist = torch.norm(object_pos - target_pos, p=2, dim=-1)
     # print(f"target pos {target_pos}")
+    # print(f"Object pos {object_pos}")
     # Orientation alignment for the cube in hand and goal cube
     quat_diff = quat_mul(object_rot, quat_conjugate(target_rot))
     rot_dist = 2.0 * torch.asin(torch.clamp(torch.norm(quat_diff[:, 1:4], p=2, dim=-1), max=1.0)) # changed quat convention

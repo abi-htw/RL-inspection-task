@@ -98,6 +98,13 @@ sim:
     override_usd_defaults: True
     fixed_base: False
     enable_self_collisions: False
+
+  cube:
+    # -1 to use default values
+    override_usd_defaults: True
+    fixed_base: True
+    enable_self_collisions: False
+
   Engine:
     # -1 to use default values
     override_usd_defaults: True

@@ -182,7 +182,7 @@ class UR10ReacherTask(ReacherTask):
 
     def get_engine_view(self, scene):
         engine_view1 = EngineView(prim_paths_expr="/World/envs/.*/Engine", name="engine_view", track_contact_forces=True, prepare_contact_sensors=True)
-        scene.add(engine_view1._startor)
+        # scene.add(engine_view1._startor)
         return engine_view1
 
     def get_object_displacement_tensor(self):

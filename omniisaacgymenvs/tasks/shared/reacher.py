@@ -31,6 +31,7 @@ from abc import abstractmethod
 
 from omniisaacgymenvs.tasks.base.rl_task import RLTask
 from omni.isaac.core.prims import RigidPrimView, XFormPrim
+from omni.isaac.core.articulations import ArticulationView
 from omni.isaac.core.scenes.scene import Scene
 from omni.isaac.core.utils.prims import get_prim_at_path
 from omni.isaac.core.utils.stage import get_current_stage, add_reference_to_stage
@@ -40,7 +41,6 @@ from omni.isaac.core.utils.torch import scale, unscale
 from omni.isaac.gym.vec_env import VecEnvBase
 from omni.isaac.core.utils import nucleus
 from omni.isaac.core.utils.viewports import set_camera_view
-from omni.isaac.core.objects import VisualCuboid
 
 #contact import
 import omni.kit as kit
@@ -168,6 +168,8 @@ class ReacherTask(RLTask):
 
         self._arms = self.get_arm_view(scene)
         scene.add(self._arms)
+
+        # self._engine = ArticulationView(prim_paths_expr="/World/envs/.*/Engine", name="Engine_view", reset_xform_properties=False)
 
         # self._engine = self.get_engine_view(scene)
         # scene.add(self._engine)

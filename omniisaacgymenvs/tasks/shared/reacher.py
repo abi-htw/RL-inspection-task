@@ -378,7 +378,7 @@ class ReacherTask(RLTask):
             self.max_consecutive_successes, self.av_factor,
             self.velocity_reward, self.cur_goal_pos, self.move_avg_env, self.time_diff, self.global_time, torch.tensor(time.perf_counter()), self.priority,
             self.all_resets, #add current velocity and goal pos
-            self.tolerance_timer_1, #self.obj_pos_check(self.object_pos, self.num_envs),
+            self.tolerance_timer_1, 
         )
 
 
@@ -433,12 +433,6 @@ class ReacherTask(RLTask):
         self.time_diff = time.perf_counter() - self.start_time
 
 
-##############TEst-contact sensors ##############################
-        # readings = self._sensor.get_sensor_sim_reading("/World/envs/.*/Engine/bmw_engine/stator_instant_Scaled" +"/sensor")
-        # print("Contact sensor: ", readings.inContact, readings.time, readings.value)
-        # engine_contact = torch.norm(self._engine._startor.get_net_contact_forces(clone=False).view(self._num_envs, 4, 3), dim=-1) > 1.
-
-################################################################################
         # if only goals need reset, then call set API
         if len(goal_env_ids) > 0 and len(env_ids) == 0:
             self.reset_target_pose(goal_env_ids)
@@ -493,16 +487,7 @@ class ReacherTask(RLTask):
                 self.send_joint_pos(joint_pos)
 
     ####### Funtion for checking if the end effector position is inside the defined area ##############
-    def obj_pos_check(self, obj_pos, num_envs):
-        """Pass in the object pos and checks if it is within the engine viscinity
-           input: object_pos
-           output: bool """
-        engine_pos = [0.4, 0.0, 0.67]
-       # if obj_pos[0] in range(engine_pos[0]-0.2, engine_pos[0]+0.2) and obj_pos[0] in range(engine_pos[1]-0.2, engine_pos[1]+0.2) and obj_pos[0] in range(engine_pos[2]-0.2, engine_pos[2]+0.2):
-        # in_eng_vis = torch.where(((engine_pos[0]-0.18 < obj_pos[0] < engine_pos[0] +0.18) & (engine_pos[1]-0.18< obj_pos[1] < engine_pos[1] +0.18) & (engine_pos[2]-0.18< obj_pos[2] < engine_pos[2] +0.09)), True, False)
-        in_eng_vis = torch.where(((engine_pos[0]-1.98 < obj_pos[:,0]) & (obj_pos[:,0] < engine_pos[0] +1.98) & (engine_pos[1]-1.98 < obj_pos[:,1]) & (obj_pos[:,0] < engine_pos[1] +1.98) & (engine_pos[2]-0.18 < obj_pos[:,2]) & (obj_pos[:,2] < engine_pos[2] +0.09)), True, False)
-        # print(in_eng_vis)
-        return in_eng_vis            
+          
 
     def is_done(self):
         pass
@@ -514,6 +499,20 @@ class ReacherTask(RLTask):
         new_pos, curr_pos, target_points, new_pos_2, new_priority_tensor = self.get_reset_target_new_pos(len(env_ids), self.priority, env_ids, self.all_resets, self.all_prev_resets)
         new_rot = randomize_rotation(rand_floats[:, 0], rand_floats[:, 1], self.x_unit_tensor[env_ids], self.y_unit_tensor[env_ids])
         #self.cur_goal_pos = torch.zeros(len(self.goal_pos), device=self.device)
+
+        ###############Find relative orientation of the cube to that of the engine #################
+
+        engine_pos = torch.tensor([0.4, 0.0, 0.67], device = self.device)
+
+        dist_Vec = engine_pos - new_pos
+        zero_ten = torch.zeros([len(env_ids),1], device=self.device)
+  
+        quat_dist = torch.cat((zero_ten, dist_Vec), dim=1)
+   
+        new_rot = quat_mul(quat_dist, self.goal_start_orientation.repeat([len(env_ids),1]))
+        print(new_rot)
+        ##########################################################################################################
+
         self.goal_pos[env_ids] = new_pos
         self.goal_rot[env_ids] = new_rot
 
@@ -597,7 +596,6 @@ def compute_arm_reward(
     velocity_reward: float, cur_goal_pos, mov_avg_env, diff_time, global_time, current_time,  priority_tensor,
     all_resets,
     tolerance_timer_1,
-    #obj_in_pos,
 
 ):
 
@@ -690,9 +688,15 @@ def compute_arm_reward(
 
     #########################################################################
 
+    ################### negative reward for getting to the ground level ###############
+
+
+    level_reward = torch.where((object_pos[:,2] < 0.8), - 5.0, 0.0)
+    # print(level_reward)
+##################################################################################################
 
     # Total reward is: position distance + orientation alignment + action regularization + success bonus + fall penalty
-    reward =  vel_reward +  goal_reward + dist_rew  + tolerance_time_reward +  action_penalty * action_penalty_scale
+    reward =  vel_reward + level_reward +  goal_reward + dist_rew  + tolerance_time_reward +  action_penalty * action_penalty_scale
     # reward =  dist_rew  +   action_penalty * action_penalty_scale
 
 

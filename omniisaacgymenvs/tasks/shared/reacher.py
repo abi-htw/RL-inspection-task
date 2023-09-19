@@ -502,15 +502,28 @@ class ReacherTask(RLTask):
 
         ###############Find relative orientation of the cube to that of the engine #################
 
-        engine_pos = torch.tensor([0.4, 0.0, 0.67], device = self.device)
+        engine_pos = torch.tensor([0.4, 0.0, 0.67], device = self.device).repeat([len(env_ids),1])
+
+        forward_vec = torch.tensor([0,0,1], device = self.device).repeat([len(env_ids),1])
 
         dist_Vec = engine_pos - new_pos
-        zero_ten = torch.zeros([len(env_ids),1], device=self.device)
-  
-        quat_dist = torch.cat((zero_ten, dist_Vec), dim=1)
-   
-        new_rot = quat_mul(quat_dist, self.goal_start_orientation.repeat([len(env_ids),1]))
-        print(new_rot)
+
+        ## Normalise the dist_Vec
+
+        dist_Vec = dist_Vec/ dist_Vec.norm()
+
+        # Find the dot product of forward_vec and dist_Vec 
+
+        dot_Vec = torch.sum(forward_vec * dist_Vec, dim=1)
+
+        angle = torch.acos(dot_Vec)
+
+        axis = torch.cross(forward_vec.long(), dist_Vec.long())
+        
+
+        new_rot = quat_from_angle_axis(angle.float(),axis.float()) 
+
+
         ##########################################################################################################
 
         self.goal_pos[env_ids] = new_pos
@@ -682,7 +695,7 @@ def compute_arm_reward(
     '''
     tolerance_tensor = torch.where((torch.abs(goal_dist) <= success_tolerance), 1, 0)
 
-    tolerance_time_reward = torch.where((torch.abs(tolerance_timer_1) > 0.0), tolerance_timer_1 * 15 , torch.tensor(0.0, device="cuda:0"))
+    tolerance_time_reward = torch.where((torch.abs(tolerance_timer_1) > 0.0), tolerance_timer_1 * 30 , torch.tensor(0.0, device="cuda:0"))
     # tolerance_time_reward = torch.where((torch.abs(tolerance_timer_1) > 0.0), torch.tensor(5.0, device="cuda:0") , torch.tensor(0.0, device="cuda:0"))
     # print(f"tolerance_time_reward: {tolerance_time_reward}")
 
@@ -696,7 +709,7 @@ def compute_arm_reward(
 ##################################################################################################
 
     # Total reward is: position distance + orientation alignment + action regularization + success bonus + fall penalty
-    reward =  vel_reward + level_reward +  goal_reward + dist_rew  + tolerance_time_reward +  action_penalty * action_penalty_scale
+    reward =  rot_rew + vel_reward + level_reward +  goal_reward + dist_rew  + tolerance_time_reward +  action_penalty * action_penalty_scale
     # reward =  dist_rew  +   action_penalty * action_penalty_scale
 
 

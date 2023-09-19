@@ -11,3 +11,4 @@ omniisaacgymenvs/runs
 omniisaacgymenvs/runs/UR10Reacher/nn/UR10Reacher.pth
 omniisaacgymenvs/env_training_variables
 omniisaacgymenvs/tasks/shared/ur10reacher.code-workspace
+sim_app_test.py

@@ -12,11 +12,11 @@ import torch
 import carb
 
 
-class Engine(Robot):
+class Engine_layer(Robot):
     def __init__(
         self,
         prim_path: str,
-        name: Optional[str] = "Engine",
+        name: Optional[str] = "engine_layer",
         usd_path: Optional[str] = None,
         translation: Optional[torch.tensor] = None,
         orientation: Optional[torch.tensor] = None,
@@ -31,25 +31,17 @@ class Engine(Robot):
             assets_root_path = get_assets_root_path()
             if assets_root_path is None:
                 carb.log_error("Could not find Isaac Sim assets folder")
-            # self._usd_path = "/inst_assets/bmw_engine.usd"
-            # self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/engine_inst_ext_layer2.usd"
-            self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/engine_inst.usd"
-            # self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/Startor 29.8.usd"
-
-
+            self._usd_path = "/inst_assets/Glass_wall/glass_ball2.usd"
             # self._usd_path = "/inst_assets/Isaac/2022.1/Isaac/Props/Box/small_KLT.usd"
 
 
 
-        # self._position = torch.tensor([1.1, 0.8, 0.5]) if translation is None else translation
         self._position = torch.tensor([0.4, 0.0, 0.67]) if translation is None else translation
-        # self._orientation = torch.tensor([-0.707, -0.707, 0.0, 0.0]) if orientation is None else orientation
-        self._orientation = torch.tensor([1.0, 0.0, 0.0, 0.0]) if orientation is None else orientation
-        self._scale = torch.tensor([0.001, 0.001, 0.001]) if scale is None else scale  # Default scale is [1, 1, 1]
-        # self._scale = torch.tensor([0.01]) if scale is None else scale
-        # self._orientation = torch.tensor([0.1, 0.0, 0.0, 0.0]) if orientation is None else orientation
-        
-    
+        # self._position = torch.tensor([9.5, 9.5, 9.5]) if translation is None else translation
+        self._orientation = torch.tensor([0.1, 0.0, 0.0, 0.0]) if orientation is None else orientation
+        self._scale = torch.tensor([0.0065, 0.0065, 0.0065]) if scale is None else scale  # Default scale is [1, 1, 1]
+
+
         add_reference_to_stage(self._usd_path, prim_path)
 
         super().__init__(
@@ -57,6 +49,6 @@ class Engine(Robot):
             name=name,
             translation=self._position,
             orientation=self._orientation,
-            scale= self._scale,
+            scale=self._scale,
             articulation_controller=None,
         )

@@ -12,11 +12,11 @@ import torch
 import carb
 
 
-class Engine(Robot):
+class Task_bound(Robot):
     def __init__(
         self,
         prim_path: str,
-        name: Optional[str] = "Engine",
+        name: Optional[str] = "Task_bound",
         usd_path: Optional[str] = None,
         translation: Optional[torch.tensor] = None,
         orientation: Optional[torch.tensor] = None,
@@ -33,7 +33,7 @@ class Engine(Robot):
                 carb.log_error("Could not find Isaac Sim assets folder")
             # self._usd_path = "/inst_assets/bmw_engine.usd"
             # self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/engine_inst_ext_layer2.usd"
-            self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/engine_inst.usd"
+            self._usd_path = "/inst_assets/Glass_wall/glass_wall2.usd"
             # self._usd_path = "/inst_assets/bmw_engine/ENGINE_V3/Collected_Startor_29.8/Startor 29.8.usd"
 
 
@@ -42,10 +42,10 @@ class Engine(Robot):
 
 
         # self._position = torch.tensor([1.1, 0.8, 0.5]) if translation is None else translation
-        self._position = torch.tensor([0.4, 0.0, 0.67]) if translation is None else translation
+        self._position = torch.tensor([0.0, 0.0, 0.9]) if translation is None else translation
         # self._orientation = torch.tensor([-0.707, -0.707, 0.0, 0.0]) if orientation is None else orientation
         self._orientation = torch.tensor([1.0, 0.0, 0.0, 0.0]) if orientation is None else orientation
-        self._scale = torch.tensor([0.001, 0.001, 0.001]) if scale is None else scale  # Default scale is [1, 1, 1]
+        self._scale = torch.tensor([1, 1, 1]) if scale is None else scale  # Default scale is [1, 1, 1]
         # self._scale = torch.tensor([0.01]) if scale is None else scale
         # self._orientation = torch.tensor([0.1, 0.0, 0.0, 0.0]) if orientation is None else orientation
         

@@ -34,10 +34,19 @@ from omniisaacgymenvs.robots.articulations.views.ur10_view import UR10View
 from omniisaacgymenvs.robots.articulations.ur10 import UR10
 from omniisaacgymenvs.robots.articulations.views.box_view import BoxView
 from omniisaacgymenvs.robots.articulations.Box import Box
+from omniisaacgymenvs.robots.articulations.task_bound import Task_bound
+from omniisaacgymenvs.robots.articulations.views.task_bound_view import Task_boundView
+from omniisaacgymenvs.robots.articulations.views.engine_layer_view import Engine_layerView
+from omniisaacgymenvs.robots.articulations.engine_layer import Engine_layer
+
 from omniisaacgymenvs.robots.articulations.views.engine_view import EngineView
 from omniisaacgymenvs.robots.articulations.engine import Engine
 
 from omni.isaac.core.utils.prims import get_prim_at_path
+from omni.isaac.core.prims import RigidPrim,geometry_prim
+from omni.isaac.core.prims import RigidPrimView, geometry_prim_view
+from omni.isaac.core.utils.stage import add_reference_to_stage
+from omni.isaac.core.robots.robot import Robot
 from omni.isaac.core.utils.torch import *
 from omni.isaac.gym.vec_env import VecEnvBase
 
@@ -171,6 +180,32 @@ class UR10ReacherTask(ReacherTask):
         box_view1 = BoxView(prim_paths_expr="/World/envs/.*/Box", name="box_view")
         #scene.add(box_view1)
         return box_view1
+    
+    def get_engine_layer(self):
+        Engine_layer1 = Engine_layer(prim_path=self.default_zero_env_path + "/engine_layer", name="ENGINE_LAYER")
+        self._sim_config.apply_articulation_settings(
+            "engine_layer",
+            get_prim_at_path(Engine_layer1.prim_path),
+            self._sim_config.parse_actor_config("engine_layer"),
+        )
+
+    def get_engine_layer_view(self, scene):
+        box_view1 = Engine_layerView(prim_paths_expr="/World/envs/.*/engine_layer", name="engine_layer_view")
+        #scene.add(box_view1)
+        return box_view1
+    
+
+    def get_task_boundary(self):
+        Task_bound1 = Task_bound(prim_path=self.default_zero_env_path + "/task_bound", name="TASK_BOUND")
+        self._sim_config.apply_articulation_settings(
+            "task_bound",
+            get_prim_at_path(Task_bound1.prim_path),
+            self._sim_config.parse_actor_config("task_bound"),
+        )
+
+    def get_task_boundary_view(self):
+        task_boud = Task_boundView(prim_paths_expr="/World/envs/.*/glass_wall", name = "glass_bound_view")
+    
 
     def get_engine(self):
         box = Engine(prim_path=self.default_zero_env_path + "/Engine", name="ENGINE")
@@ -221,23 +256,62 @@ class UR10ReacherTask(ReacherTask):
 
     #     return {"extras": self.extras}
 
-    def get_rand_eng_layer_pos(self, pos, n_reset_envs):
+    def get_rand_eng_layer_pos_cuboid_layer(self, pos, n_reset_envs):
         while True:
             x = random.uniform(pos[0]-0.3, pos[0]+0.3)
             y = random.uniform(pos[1]- 0.3, pos[1] + 0.3)
             z = random.uniform(pos[2] + 0.1, pos[2]+ 0.2)
             if pos[0]-0.18 < x < pos[0] +0.18 and pos[1]-0.18< y < pos[1] +0.18:
                 pass
-            else: 
+            else:
                 break
         relative_pos = torch.tensor([x,y,z], device= self.device)
         return torch.stack([relative_pos]* n_reset_envs)
+
+    def get_rand_eng_layer_pos_sphere_layer(self, pos, n_reset_envs):
+        radius_outer = 0.4
+        radius_inner = 0.35
+        pos =torch.tensor(pos, device=self.device)
+        while True:
+            x = random.uniform(pos[0]-0.3, pos[0]+0.4)
+            y = random.uniform(pos[1]- 0.3, pos[1] + 0.4)
+            z = random.uniform(pos[2] + 0.1, pos[2]+ 0.4)
+            
+            # print(torch.norm(torch.tensor([x,y,z],device=self.device)- pos))
+            
+            if torch.norm(torch.tensor([x,y,z],device=self.device)- pos) > radius_inner and torch.norm(torch.tensor([x,y,z],device=self.device)- pos) < radius_outer :
+                break
+
+        self.relative_pos = torch.tensor([x,y,z], device= self.device)
+        return torch.stack([self.relative_pos]* n_reset_envs)
+    
+    def end_effector_check(self, end_pos,engine_pos=[0.4, 0.0, 0.67]):
+        """ Function to check if the end effector is in the region of the engine
+            The torch.norm function always outputs a positive value, hence no need to use modulus of the output 
+        """
+        
+        radius_inner = 0.3
+        diff = end_pos -  torch.tensor((engine_pos), device=self.device)
+        
+        dist = torch.norm(diff,dim=1)
+        dist2 = torch.norm(self.relative_pos -  torch.tensor((engine_pos), device=self.device) )
+        # print(dist2)
+        # print(self.relative_pos)
+        # print(f"eepos{end_pos}")
+        # print(dist)
+
+        # print(dist2)
+        if_in_region = torch.where(dist < radius_inner, True, False)  
+        # print(if_in_region)
+        return if_in_region
 
 
     def get_reset_target_new_pos(self, n_reset_envs, priority_tensor, reset_envs, all_resets, all_prev_resets):
         # Randomly generate goal positions, although the resulting goal may still not be reachable.
         new_pos = torch_rand_float(-1, 1, (n_reset_envs, 3), device=self.device)
-        new_pos_engine = self.get_rand_eng_layer_pos([0.4, 0.0, 0.67], n_reset_envs)
+        # new_pos_engine = self.get_rand_eng_layer_pos_cuboid_layer([0.4, 0.0, 0.67], n_reset_envs)
+        new_pos_engine = self.get_rand_eng_layer_pos_sphere_layer([0.4, 0.0, 0.67], n_reset_envs)
+
         # print(new_pos_engine)
 
         def newpos():
@@ -439,6 +513,8 @@ class UR10ReacherTask(ReacherTask):
         # print(f"pew pos {new_pos_engine}")
         # new_pos_2 : with priorities on defenite points, new_pos : random points
         return new_pos_engine,  current_pos, target_points, new_pos_2 , new_priority_tensor
+        # return torch.tensor([1.9, 0.2 , 1.5], device=self.device),  current_pos, target_points, new_pos_2 , new_priority_tensor
+
 
     def compute_full_observations(self, no_vel=False):
         if no_vel:

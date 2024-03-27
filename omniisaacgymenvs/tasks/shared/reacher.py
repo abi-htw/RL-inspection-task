@@ -44,6 +44,11 @@ from omni.isaac.core.utils.viewports import set_camera_view
 
 #contact import
 import omni.kit as kit
+
+
+from omni.isaac.core.objects import VisualCuboid, DynamicCuboid
+from omni.isaac.core.objects import VisualSphere
+from omni.isaac.core import SimulationContext
 # from omni.isaac.isaac_sensor import _isaac_sensor
 
 
@@ -51,6 +56,7 @@ import omni.kit as kit
 import numpy as np
 import torch
 import time
+from numba import jit 
 
 
 
@@ -150,7 +156,6 @@ class ReacherTask(RLTask):
         ### Define vel reward ###
         self.cur_goal_pos = []
         self.vel_reward = 0
-
         return
 
     def set_up_scene(self, scene: Scene) -> None:
@@ -160,38 +165,19 @@ class ReacherTask(RLTask):
         self.get_arm()
         self.get_object()
         self.get_box()
+        self.get_engine_layer()
+        self.get_task_boundary()
         self.get_engine()
         self.get_goal()
-        # self.get_cube()
+
+     
 
         super().set_up_scene(scene)
 
+        # self.task_bound = self.get_task_boundary(scene)
+        # scene.add(self.task_bound)
         self._arms = self.get_arm_view(scene)
         scene.add(self._arms)
-
-        # self._engine = ArticulationView(prim_paths_expr="/World/envs/.*/Engine", name="Engine_view", reset_xform_properties=False)
-
-        # self._engine = self.get_engine_view(scene)
-        # scene.add(self._engine)
-
-        # def get_boxx(self):
-        #     boxx = Box(prim_path=self.default_zero_env_path + "/Cartpole", name="Cartpole", translation=self._cartpole_positions)
-        #     # applies articulation settings from the task configuration yaml file
-        #     self._sim_config.apply_articulation_settings("Cartpole", get_prim_at_path(cartpole.prim_path), self._sim_config.parse_actor_config("Cartpole"))
-
-        # self._box = self.get_box_view(scene)
-        # scene.add(self._box)
-
-        # self._engine = self.get_engine_view(scene)
-        # scene.add(self._engine)
-
-        # self._cube = RigidPrimView(
-        #     prim_paths_expr="/World/envs/env_.*/cube/object",
-        #     # prim_paths_expr="/World/envs/env_.*/object/object",
-        #     name="cube_view",
-        #     reset_xform_properties=False, #track_contact_forces=True, prepare_contact_sensors=True,
-        # )
-        # scene.add(self._cube)
 
         self._objects = RigidPrimView(
             prim_paths_expr="/World/envs/env_.*/object/picam_hq",
@@ -233,6 +219,18 @@ class ReacherTask(RLTask):
     @abstractmethod
     def get_box_view(self):
         pass
+    
+    @abstractmethod
+    def get_task_boundary(self):
+        pass
+    
+    @abstractmethod
+    def get_engine_layer(self):
+        pass
+
+    @abstractmethod
+    def get_engine_layer_view(self):
+        pass
 
     @abstractmethod
     def get_engine(self):
@@ -257,6 +255,10 @@ class ReacherTask(RLTask):
 
     @abstractmethod
     def send_joint_pos(self, joint_pos):
+        pass
+    
+    @abstractmethod
+    def end_effector_check(self, end_pos):
         pass
 
     def get_cube(self):
@@ -340,11 +342,9 @@ class ReacherTask(RLTask):
 
 
 
-
         #start time of all envs
         self.start_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
         self.global_time = torch.tensor([time.perf_counter()], device= self.device).repeat(self.num_envs, 1)
-
         self.general_tolerance_timer =  torch.tensor(time.perf_counter(), device= self.device).repeat(self.num_envs)
 
 
@@ -370,6 +370,17 @@ class ReacherTask(RLTask):
         self.fall_dist = 0
         self.fall_penalty = 0
         self.velocity_reward = 0
+        # self.end_eff_pos, _ = self._arms._end_effectors.get_world_poses()
+        self.obj_pos, _= self._objects.get_world_poses()
+        self.obj_pos = self.obj_pos -self._env_pos #global to local ############################################# 
+        if_end_in_region = self.end_effector_check(self.obj_pos)
+        # print(f"engine_region : {if_end_in_region}")
+
+        # end effector in outer boundary check 
+        task_bound = self.safety_check(self.obj_pos)
+        # print(task_bound)
+        
+        
         self.rew_buf[:], self.reset_buf[:], self.reset_goal_buf[:], self.progress_buf[:], self.successes[:], self.consecutive_successes[:], self.accuracy[:], self.all_prev_resets[:], self.success_num[:], self.rejection_num[:], self.make_span_time[:], self.tolerance_tensor[:], self.prev_actions[:], self.stability[:] = compute_arm_reward(
             self.rew_buf, self.reset_buf, self.reset_goal_buf, self.progress_buf, self.successes, self.consecutive_successes,
             self.max_episode_length, self.object_pos, self.object_rot, self.goal_pos, self.goal_rot,
@@ -379,6 +390,8 @@ class ReacherTask(RLTask):
             self.velocity_reward, self.cur_goal_pos, self.move_avg_env, self.time_diff, self.global_time, torch.tensor(time.perf_counter()), self.priority,
             self.all_resets, #add current velocity and goal pos
             self.tolerance_timer_1, 
+            if_end_in_region, # add end_eff pos for checking if reall close to engine
+            task_bound, # check for end_eff going off the glass boundary
         )
 
 
@@ -491,6 +504,47 @@ class ReacherTask(RLTask):
 
     def is_done(self):
         pass
+    
+    
+    
+    @jit(forceobj=True, looplift=True)
+    def left_right(self,input):
+        if input[1] < 0.50 and input[1] > -0.50:
+            left = True
+        else: left = False
+        return left
+    @jit(forceobj=True, looplift=True)   
+    def front_back(self,input):
+        if input[0] < 0.85 and input[0] > -0.85:
+            front = True
+        else: front = False
+        return front 
+    
+    @jit(forceobj=True, looplift=True)
+    def iterator(self,end_list):
+        truth_list = []
+        # left_right = lambda g : False if g[1] < 0.50 and g[1] > -0.50 else True
+        # front_back = lambda g : False if g[0] < 0.85 and g[0] > -0.85 else True
+
+      
+       
+                
+        
+        for pos in end_list:
+            truth_list.append([self.left_right(pos), self.front_back(pos)])
+        return(truth_list)
+    
+    def safety_check(self,end_pos):
+        # print(end_pos.tolist())
+        end_pos_list = end_pos.tolist()
+        # truth_list = []
+        # left_right = lambda g : False if g[1] < 0.50 and g[1] > -0.50 else True
+        # front_back = lambda g : False if g[0] < 0.85 and g[0] > -0.85 else True
+        truth_list = self.iterator(end_pos_list)
+        # for pos in end_pos_list:
+            # truth_list.append([left_right(pos), front_back(pos)])
+        # print(truth_list)
+        return torch.tensor(truth_list, device=self.device)
 
     def reset_target_pose(self, env_ids):
         # reset goal
@@ -609,6 +663,8 @@ def compute_arm_reward(
     velocity_reward: float, cur_goal_pos, mov_avg_env, diff_time, global_time, current_time,  priority_tensor,
     all_resets,
     tolerance_timer_1,
+    if_in_region,
+    task_bound_check,
 
 ):
 
@@ -654,6 +710,10 @@ def compute_arm_reward(
 
 
 #################################################################
+    ############## Reward for outputting same action if distance is within the zone #################
+    
+    # action_check = torch.all(prev_actions== actions, dim = -1)
+    # action_min_dist_rew = torch.where((torch.abs((goal_dist) <= 0.06) & action_check), 30, 0)
 
     ############### Accuracy calculation########################
 
@@ -675,7 +735,7 @@ def compute_arm_reward(
     prev_actions = current_actions
 
 
-    #############################################################
+    ############################################################# 
 
     # waiting time
     # print(f"current{cur_goal_pos}")
@@ -696,20 +756,35 @@ def compute_arm_reward(
     tolerance_tensor = torch.where((torch.abs(goal_dist) <= success_tolerance), 1, 0)
 
     tolerance_time_reward = torch.where((torch.abs(tolerance_timer_1) > 0.0), tolerance_timer_1 * 30 , torch.tensor(0.0, device="cuda:0"))
+    # print(rot_rew)
     # tolerance_time_reward = torch.where((torch.abs(tolerance_timer_1) > 0.0), torch.tensor(5.0, device="cuda:0") , torch.tensor(0.0, device="cuda:0"))
     # print(f"tolerance_time_reward: {tolerance_time_reward}")
 
     #########################################################################
+    
+    ######### Negative reward if the end effector is too close  to the engine #############
+    
+    end_eff_engine_rew = torch.where(if_in_region, -20, 0)
+    
+    ######### Negative reward if the end effector is going out of the glass boundary #############
+    # print(task_bound_check)
+    end_eff_bound_rew = torch.where(task_bound_check, -20, 0)                ################################### uncomment #####################################
+    # end_eff_bound_rew = torch.sum(end_eff_bound_rew, dim=1)
+    end_eff_bound_rew = end_eff_bound_rew.sum(dim=1)                         #################################### uncomment ####################################
+    # print(end_eff_engine_rew , end_eff_bound_rew)
+
+ 
+    
 
     ################### negative reward for getting to the ground level ###############
 
 
     level_reward = torch.where((object_pos[:,2] < 0.8), - 5.0, 0.0)
-    # print(level_reward)
+    
 ##################################################################################################
 
     # Total reward is: position distance + orientation alignment + action regularization + success bonus + fall penalty
-    reward =  rot_rew + vel_reward + level_reward +  goal_reward + dist_rew  + tolerance_time_reward +  action_penalty * action_penalty_scale
+    reward =   vel_reward + end_eff_engine_rew + end_eff_bound_rew +  goal_reward + dist_rew  + tolerance_time_reward  +  action_penalty * action_penalty_scale
     # reward =  dist_rew  +   action_penalty * action_penalty_scale
 
 

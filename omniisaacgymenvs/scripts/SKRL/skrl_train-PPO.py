@@ -94,7 +94,7 @@ cfg_ppo["mini_batches"] = 4  # 64 * 512 / 32768
 cfg_ppo["discount_factor"] = 0.993
 cfg_ppo["lambda"] = 0.93
 # cfg_ppo["learning_rate"] = 5e-4
-cfg_ppo["learning_rate"] = 5e-4
+cfg_ppo["learning_rate"] = 5e-3
 cfg_ppo["learning_rate_scheduler"] = KLAdaptiveRL
 # cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.014}
 cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.008}
@@ -114,7 +114,7 @@ cfg_ppo["value_preprocessor"] = RunningStandardScaler
 cfg_ppo["value_preprocessor_kwargs"] = {"size": 1, "device": device}
 # logging to TensorBoard and write checkpoints each 16 and 80 timesteps respectively
 # cfg_ppo["experiment"]["write_interval"] = 600
-# cfg_ppo["experiment"]["checkpoint_interval"] = 13000
+# cfg_ppo["experiment"]["checkpoint_interval"] = 20000
 # cfg_ppo["experiment"]["wandb"] = True
 
 
@@ -133,8 +133,8 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 # trainer = ParallelTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-08-11_01-34-00-735561_PPO/checkpoints/agent_988000.pt")
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/23-09-08_12-36-11-046049_PPO/checkpoints/best_agent.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/24-02-08_09-12-04-691142_PPO/checkpoints/best_agent.pt")
+# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/24-03-13_14-42-46-464131_PPO/checkpoints/best_agent.pt")
 
 
 # start training

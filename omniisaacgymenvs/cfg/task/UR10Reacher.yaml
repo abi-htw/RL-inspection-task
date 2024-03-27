@@ -36,7 +36,7 @@ env:
   distRewardScale: -8.0
   # distRewardScale: -2.0
   # rotRewardScale: 1.0
-  rotRewardScale: 1.0
+  rotRewardScale: -4.0
   rotEps: 0.1
   actionPenaltyScale: -0.0002
   # reachGoalBonus: 250
@@ -101,7 +101,7 @@ sim:
 
   cube:
     # -1 to use default values
-    override_usd_defaults: True
+    override_usd_defaults: False
     fixed_base: True
     enable_self_collisions: False
 

@@ -89,12 +89,12 @@ cfg_ppo = PPO_DEFAULT_CONFIG.copy()
 cfg_ppo["rollouts"] = 16  # memory_size
 # cfg_ppo["learning_epochs"] = 6
 cfg_ppo["learning_epochs"] = 6
-# cfg_ppo["mini_batches"] = 2  # 16 * 512 / 8192
-cfg_ppo["mini_batches"] = 4  # 64 * 512 / 32768
+cfg_ppo["mini_batches"] = 2  # 16 * 512 / 8192
+# cfg_ppo["mini_batches"] = 4  # 64 * 512 / 32768
 cfg_ppo["discount_factor"] = 0.993
 cfg_ppo["lambda"] = 0.93
-# cfg_ppo["learning_rate"] = 5e-4
-cfg_ppo["learning_rate"] = 5e-3
+cfg_ppo["learning_rate"] = 5e-4
+# cfg_ppo["learning_rate"] = 5e-3
 cfg_ppo["learning_rate_scheduler"] = KLAdaptiveRL
 # cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.014}
 cfg_ppo["learning_rate_scheduler_kwargs"] = {"kl_threshold": 0.008}
@@ -134,12 +134,12 @@ trainer = SequentialTrainer(cfg=cfg_trainer, env=env, agents=agent)
 
 
 # agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/24-02-08_09-12-04-691142_PPO/checkpoints/best_agent.pt")
-# agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/24-03-13_14-42-46-464131_PPO/checkpoints/best_agent.pt")
+agent.load("/RLrepo/ur10reacher/omniisaacgymenvs/runs/24-04-12_11-40-22-656011_PPO/checkpoints/best_agent.pt")
 
 
 # start training
-trainer.train()
-# trainer.eval()
+# trainer.train()
+trainer.eval()
 
 
 # threading.Thread(target=trainer.eval).start()

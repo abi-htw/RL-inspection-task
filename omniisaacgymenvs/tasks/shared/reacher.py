@@ -410,9 +410,10 @@ class ReacherTask(RLTask):
         new_ten = self.tolerance_tensor.to(torch.bool)
         self.general_tolerance_timer = torch.where(new_ten,  self.general_tolerance_timer, torch.tensor(time.perf_counter(), device=self.device))
         # Reset general timer if already more than 4 seconds (if not reset, the updation for success will happen twice, goal reset might not be fast enough)
-        self.general_tolerance_timer = torch.where((torch.abs(self.tolerance_timer_1) == 3.0), torch.tensor(time.perf_counter(),  device=self.device) , self.general_tolerance_timer)
+        self.general_tolerance_timer = torch.where((torch.abs(self.tolerance_timer_1) >= 4.0), torch.tensor(time.perf_counter(),  device=self.device) , self.general_tolerance_timer)
         # Set tolerance timer
         self.tolerance_timer_1 = torch.where(new_ten, (time.perf_counter() - self.general_tolerance_timer ), torch.tensor(0.0, device=self.device))
+        print( self.general_tolerance_timer )
 
 
         if self.print_success_stat:
@@ -710,10 +711,10 @@ def compute_arm_reward(
 
 
 #################################################################
-    ############## Reward for outputting same action if distance is within the zone #################
+    ############ Reward for outputting same action if distance is within the zone #################
     
-    # action_check = torch.all(prev_actions== actions, dim = -1)
-    # action_min_dist_rew = torch.where((torch.abs((goal_dist) <= 0.06) & action_check), 30, 0)
+    action_check = torch.all(prev_actions== actions, dim = -1)
+    action_min_dist_rew = torch.where((torch.abs((goal_dist) <= 0.06) & action_check), 60, 0)
 
     ############### Accuracy calculation########################
 
@@ -768,9 +769,9 @@ def compute_arm_reward(
     
     ######### Negative reward if the end effector is going out of the glass boundary #############
     # print(task_bound_check)
-    end_eff_bound_rew = torch.where(task_bound_check, -20, 0)                ################################### uncomment #####################################
+    # end_eff_bound_rew = torch.where(task_bound_check, -20, 0)                ################################### uncomment #####################################
     # end_eff_bound_rew = torch.sum(end_eff_bound_rew, dim=1)
-    end_eff_bound_rew = end_eff_bound_rew.sum(dim=1)                         #################################### uncomment ####################################
+    # end_eff_bound_rew = end_eff_bound_rew.sum(dim=1)                         #################################### uncomment ####################################
     # print(end_eff_engine_rew , end_eff_bound_rew)
 
  
@@ -784,7 +785,7 @@ def compute_arm_reward(
 ##################################################################################################
 
     # Total reward is: position distance + orientation alignment + action regularization + success bonus + fall penalty
-    reward =   vel_reward + end_eff_engine_rew + end_eff_bound_rew +  goal_reward + dist_rew  + tolerance_time_reward  +  action_penalty * action_penalty_scale
+    reward =   vel_reward + end_eff_engine_rew + action_min_dist_rew+  goal_reward + dist_rew  + tolerance_time_reward  +  action_penalty * action_penalty_scale
     # reward =  dist_rew  +   action_penalty * action_penalty_scale
 
 

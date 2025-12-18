@@ -1,231 +1,19 @@
-# UR10 Reacher Reinforcement Learning Sim2Real Environment for Omniverse Isaac Gym/Sim
+# Engine Inspection Task 
 
-This repository adds a UR10Reacher environment based on [OmniIsaacGymEnvs](https://github.com/NVIDIA-Omniverse/OmniIsaacGymEnvs) (commit [d0eaf2e](https://github.com/NVIDIA-Omniverse/OmniIsaacGymEnvs/tree/d0eaf2e7f1e1e901d62e780392ca77843c08eb2c)), and includes Sim2Real code to control a real-world [UR10](https://www.universal-robots.com/products/ur10-robot/) with the policy learned by reinforcement learning in Omniverse Isaac Gym/Sim.
+In this repositiory, you can find the source code to train a UR10 robot to do an inspection task on engine (or any other object). The task is defined with the following requirements:
 
-We target Isaac Sim 2022.1.1 and test the RL code on Windows 10 and Ubuntu 18.04. The Sim2Real code is tested on Linux and a real UR5 CB3 (since we don't have access to a real UR10).
+1) The task is to be completed under 60 sec 
+2) The total number of inspection points: up to 6
+3) Time the end effector stays at each inspection point : < 4 sec
+4) Respect safety zone: around inspection object and the ground 
 
-This repo is compatible with [OmniIsaacGymEnvs-DofbotReacher](https://github.com/j3soon/OmniIsaacGymEnvs-DofbotReacher).
+Please refer the following conference proceedings for the details on the working of the pipeline:
 
-## Preview
+Sunilkumar, A., Bahrpeyma, F. and Reichelt, D. (2024) ‘Positioning stabilization with reinforcement learning for multi-step robot positioning tasks in nvidia omniverse’, in 2024 IEEE 22nd International Conference on Industrial Informatics (INDIN). 2024 IEEE 22nd International Conference on Industrial Informatics (INDIN), IEEE, pp. 1–8. Available at: https://doi.org/10.1109/indin58382.2024.10774286.
 
-![](docs/media/UR10Reacher-Vectorized.gif)
+This project is based on [OmniIsaacGymEnvs-UR10Reacher](https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher). 
 
-![](docs/media/UR10Reacher-Sim2Real.gif)
 
-## Installation
-
-Prerequisites:
-- [Install Omniverse Isaac Sim 2022.1.1](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_basic.html) (Must setup Cache and Nucleus)
-- Your computer & GPU should be able to run the Cartpole example in [OmniIsaacGymEnvs](https://github.com/NVIDIA-Omniverse/OmniIsaacGymEnvs)
-- (Optional) [Set up a UR3/UR5/UR10](https://www.universal-robots.com/products/) in the real world
-
-We will use Anaconda to manage our virtual environment:
-
-1. Clone this repository:
-   - Linux
-     ```sh
-     cd ~
-     git clone https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher.git
-     ```
-   - Windows
-     ```sh
-     cd %USERPROFILE%
-     git clone https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher.git
-     ```
-2. Generate [instanceable](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/tutorial_gym_instanceable_assets.html) UR10 assets for training:
-
-   [Launch the Script Editor](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/tutorial_gui_interactive_scripting.html#script-editor) in Isaac Sim. Copy the content in `omniisaacgymenvs/utils/usd_utils/create_instanceable_ur10.py` and execute it inside the Script Editor window. Wait until you see the text `Done!`.
-3. (Optional) [Install ROS Melodic for Ubuntu](https://wiki.ros.org/melodic/Installation/Ubuntu) and [Set up a catkin workspace for UR10](https://github.com/UniversalRobots/Universal_Robots_ROS_Driver/blob/master/README.md).
-   
-   Please change all `catkin_ws` in the commands to `ur_ws`, and make sure you can control the robot with `rqt-joint-trajectory-controller`.
-
-   ROS support is not tested on Windows.
-4. [Download and Install Anaconda](https://www.anaconda.com/products/distribution#Downloads).
-   ```sh
-   # For 64-bit Linux (x86_64/x64/amd64/intel64)
-   wget https://repo.anaconda.com/archive/Anaconda3-2022.10-Linux-x86_64.sh
-   bash Anaconda3-2022.10-Linux-x86_64.sh
-   ```
-   For Windows users, make sure to use Anaconda Prompt instead of Command Prompt or Powershell for the following commands.
-5. Patch Isaac Sim 2022.1.1
-   - Linux
-     ```sh
-     export ISAAC_SIM="$HOME/.local/share/ov/pkg/isaac_sim-2022.1.1"
-     cp $ISAAC_SIM/setup_python_env.sh $ISAAC_SIM/setup_python_env.sh.bak
-     cp ~/OmniIsaacGymEnvs-UR10Reacher/isaac_sim-2022.1.1-patch/setup_python_env.sh $ISAAC_SIM/setup_python_env.sh
-     ```
-   - Windows
-     ```sh
-     set ISAAC_SIM="%LOCALAPPDATA%\ov\pkg\isaac_sim-2022.1.1"
-     copy %USERPROFILE%\OmniIsaacGymEnvs-UR10Reacher\isaac_sim-2022.1.1-patch\windows\setup_conda_env.bat %ISAAC_SIM%\setup_conda_env.bat
-     ```
-6. [Set up conda environment for Isaac Sim](https://docs.omniverse.nvidia.com/app_isaacsim/app_isaacsim/install_python.html#advanced-running-with-anaconda)
-   - Linux
-     ```sh
-     # conda remove --name isaac-sim --all
-     export ISAAC_SIM="$HOME/.local/share/ov/pkg/isaac_sim-2022.1.1"
-     cd $ISAAC_SIM
-     conda env create -f environment.yml
-     conda activate isaac-sim
-     cd ~/OmniIsaacGymEnvs-UR10Reacher
-     pip install -e .
-     # Below is optional
-     pip install pyyaml rospkg
-     ```
-   - Windows
-     ```sh
-     # conda remove --name isaac-sim --all
-     set ISAAC_SIM="%LOCALAPPDATA%\ov\pkg\isaac_sim-2022.1.1"
-     cd %ISAAC_SIM%
-     conda env create -f environment.yml
-     conda activate isaac-sim
-     :: Fix incorrect importlib-metadata version (isaac-sim 2022.1.1)
-     pip install importlib-metadata==4.11.4
-     cd %USERPROFILE%\OmniIsaacGymEnvs-UR10Reacher
-     pip install -e .
-     :: Fix incorrect torch version (isaac-sim 2022.1.1)
-     conda install -y pytorch==1.11.0 torchvision==0.12.0 torchaudio==0.11.0 -c pytorch
-     ```
-7. Activate conda & ROS environment
-   - Linux
-     ```sh
-     export ISAAC_SIM="$HOME/.local/share/ov/pkg/isaac_sim-2022.1.1"
-     cd $ISAAC_SIM
-     conda activate isaac-sim
-     source setup_conda_env.sh
-     # Below are optional
-     cd ~/ur_ws
-     source devel/setup.bash # or setup.zsh if you're using zsh
-     ```
-   - Windows
-     ```sh
-     set ISAAC_SIM="%LOCALAPPDATA%\ov\pkg\isaac_sim-2022.1.1"
-     cd %ISAAC_SIM%
-     conda activate isaac-sim
-     call setup_conda_env.bat
-     ```
-
-Please note that you should execute the commands in Step 7 for every new shell.
-
-For Windows users, replace `~` to `%USERPROFILE%` for all the following commands.
-
-## Dummy Policy
-
-This is a sample to make sure you have setup the environment correctly. You should see a single UR10 in Isaac Sim.
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/dummy_ur10_policy.py task=UR10Reacher test=True num_envs=1
-```
-
-## Training
-
-You can launch the training in `headless` mode as follows:
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/rlgames_train.py task=UR10Reacher headless=True
-```
-
-The number of environments is set to 512 by default. If your GPU has small memory, you can decrease the number of environments by changing the arguments `num_envs` as below:
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/rlgames_train.py task=UR10Reacher headless=True num_envs=512
-```
-
-You can also skip training by downloading the pre-trained model checkpoint by:
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-wget https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher/releases/download/v1.0.0/runs.zip
-unzip runs.zip
-# For Sim2Real
-wget https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher/releases/download/v1.0.0/runs_safety.zip
-unzip runs_safety.zip
-```
-
-The learning curve of the pre-trained model (normal vs. safety):
-
-![](docs/media/UR10Reacher-Learning-Curve.png)
-![](docs/media/UR10Reacher-Learning-Curve-Safety.png)
-
-## Testing
-
-Make sure you have model checkpoints at `~/OmniIsaacGymEnvs-UR10Reacher/runs`, you can check it with the following command:
-
-```sh
-ls ~/OmniIsaacGymEnvs-UR10Reacher/runs/UR10Reacher/nn/
-```
-
-You can visualize the learned policy by the following command:
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/rlgames_train.py task=UR10Reacher test=True num_envs=512 checkpoint=./runs/UR10Reacher/nn/UR10Reacher.pth
-```
-
-Likewise, you can decrease the number of environments by modifying the parameter `num_envs=512`.
-
-## Sim2Real
-
-It is important to make sure that you know how to safely control your robot by reading the manual. For additional safety, please add the following configurations:
-1. Set `General Limits` to `Very restricted`
-   ![](docs/media/UR5-Safety-Very-Restricted.jpeg)
-2. Set `Joint Limits` according to your robot mounting point and the environment.
-   ![](docs/media/UR5-Safety-Joint-Limits.jpeg)
-3. Set `Boundaries` according to the robot's environment.
-   ![](docs/media/UR5-Safety-Boundaries.jpeg)
-
-Play with the robot and make sure it won't hit anything under the current configuration. If anything goes wrong, press the red `EMERGENCY-STOP` button.
-
-In the following, we'll assume you have the same mounting direction and workspace as the preview GIF. If you have a different setup, you need to modify the code. Please [open an issue](https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher/issues) if you need more information on where to modify.
-
-We'll use ROS to control the real-world robot. Run the following command in a Terminal: (Replace `192.168.50.50` to your robot's IP address)
-
-```sh
-roslaunch ur_robot_driver ur5_bringup.launch robot_ip:=192.168.50.50 headless_mode:=true
-```
-
-Edit `omniisaacgymenvs/cfg/task/UR10Reacher.yaml`. Set `sim2real.enabled` and `safety.enabled` to `True`:
-
-```yaml
-sim2real:
-  enabled: True
-  fail_quietely: False
-  verbose: False
-safety: # Reduce joint limits during both training & testing
-  enabled: True
-```
-
-Now you can control the real-world UR10 in real-time by the following command:
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/rlgames_train.py task=UR10Reacher test=True num_envs=1 checkpoint=./runs/UR10Reacher/nn/UR10Reacher.pth
-# or if you want to use the pre-trained checkpoint
-python omniisaacgymenvs/scripts/rlgames_train.py task=UR10Reacher test=True num_envs=1 checkpoint=./runs_safety/UR10Reacher/nn/UR10Reacher.pth
-```
-
-## Demo
-
-We provide an interactable demo based on the `UR10Reacher` RL example. In this demo, you can click on any of
-the UR10 in the scene to manually control the robot with your keyboard as follows:
-
-- `Q`/`A`: Control Joint 0.
-- `W`/`S`: Control Joint 1.
-- `E`/`D`: Control Joint 2.
-- `R`/`F`: Control Joint 3.
-- `T`/`G`: Control Joint 4.
-- `Y`/`H`: Control Joint 5.
-- `ESC`: Unselect a selected UR10 and yields manual control
-
-Launch this demo with the following command. Note that this demo limits the maximum number of UR10 in the scene to 128.
-
-```sh
-cd ~/OmniIsaacGymEnvs-UR10Reacher
-python omniisaacgymenvs/scripts/rlgames_play.py task=UR10Reacher num_envs=64
-```
 
 ## Running in Docker
 
@@ -259,7 +47,7 @@ We will now set up the environment inside Docker:
 3. Clone this repository:
    ```sh
    cd ~
-   git clone https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher.git
+   git clone https://github.com/abi-htw/RL-inspection-task.git
    ```
 4. [Download and Install Anaconda](https://www.anaconda.com/products/distribution#Downloads).
    ```sh

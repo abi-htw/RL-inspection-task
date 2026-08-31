@@ -1,3 +1,9 @@
+## ACKNOWLEDGEMENT
+
+This research was supported by the Federal Ministry of Education and Research (BMBF) and the Key Digital Technologies (KDT) program as part of the Framework Programme for Research and Innovation in the European Union within the project "CLEVER" (Grant Nos: 16MEE0262, 101097560).
+
+---
+
 # Engine Inspection Task 
 
 In this repositiory, you can find the source code to train a UR10 robot to do an inspection task on engine (or any other object). The task is defined with the following requirements:

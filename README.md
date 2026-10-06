@@ -30,7 +30,6 @@ Sunilkumar, A., Bahrpeyma, F. and Reichelt, D. (2024) ‘Positioning stabilizati
 This project is based on [OmniIsaacGymEnvs-UR10Reacher](https://github.com/j3soon/OmniIsaacGymEnvs-UR10Reacher). 
 
 
-
 ## Running in Docker
 
 If you have a [NVIDIA Enterprise subscription](https://docs.omniverse.nvidia.com/prod_nucleus/prod_nucleus/enterprise/installation/planning.html), you can run all services with Docker Compose.
